@@ -375,10 +375,10 @@ var _ = Describe("AppStore (OwnedApps)", func() {
 			Expect(actual).To(Equal(expected))
 		},
 		Entry("defaults page and limit", OwnedAppsInput{}, OwnedAppsInput{Page: 1, Limit: 10}, ""),
-		Entry("accepts the maximum limit", OwnedAppsInput{Page: 3, Limit: 100}, OwnedAppsInput{Page: 3, Limit: 100}, ""),
+		Entry("accepts the maximum limit", OwnedAppsInput{Page: 3, Limit: MaxOwnedAppsLimit}, OwnedAppsInput{Page: 3, Limit: MaxOwnedAppsLimit}, ""),
 		Entry("rejects a negative page", OwnedAppsInput{Page: -1, Limit: 10}, OwnedAppsInput{}, "page"),
 		Entry("rejects a negative limit", OwnedAppsInput{Page: 1, Limit: -1}, OwnedAppsInput{}, "limit"),
-		Entry("rejects a limit over 100", OwnedAppsInput{Page: 1, Limit: 101}, OwnedAppsInput{}, "100"),
+		Entry("rejects a limit over the maximum", OwnedAppsInput{Page: 1, Limit: MaxOwnedAppsLimit + 1}, OwnedAppsInput{}, "limit must not exceed"),
 		Entry("rejects an invalid platform", OwnedAppsInput{Platform: "invalid"}, OwnedAppsInput{}, "invalid platform"),
 		Entry("rejects unknown as a filter", OwnedAppsInput{Platform: PlatformUnknown}, OwnedAppsInput{}, "invalid platform"),
 	)

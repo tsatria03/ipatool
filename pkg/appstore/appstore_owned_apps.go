@@ -17,7 +17,10 @@ import (
 
 const (
 	DefaultOwnedAppsLimit = 10
-	MaxOwnedAppsLimit     = 100
+	// MaxOwnedAppsLimit is high enough to return a whole purchase history in one
+	// request: each request downloads the full history anyway, so small pages
+	// only multiply the work. (Raised from 100 in the accessible fork.)
+	MaxOwnedAppsLimit = 100000
 
 	ownedAppsMediaKind       = 131072
 	ownedArcadeAppsMediaKind = 262144

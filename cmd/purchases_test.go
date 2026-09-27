@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"strconv"
+
 	"github.com/majd/ipatool/v2/pkg/appstore"
 	"github.com/majd/ipatool/v2/pkg/log"
 	. "github.com/onsi/ginkgo/v2"
@@ -61,7 +63,7 @@ var _ = Describe("List Purchases command", func() {
 		},
 		Entry("page below one", "page", "0", "page"),
 		Entry("max results below one", "max-results", "0", "max results"),
-		Entry("max results over limit", "max-results", "101", "100"),
+		Entry("max results over limit", "max-results", strconv.Itoa(appstore.MaxOwnedAppsLimit+1), "must not exceed"),
 	)
 
 	It("is registered on the root command", func() {
