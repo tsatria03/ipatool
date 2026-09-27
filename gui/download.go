@@ -38,10 +38,10 @@ func (g *gui) downloadTab() TabPage {
 		ComboBox{AssignTo: &d.platform, Model: platforms, CurrentIndex: 0, Accessibility: accessible("&Platform:")}, nil)...)
 	rows = append(rows, labeled("&Version ID (leave blank for latest):",
 		LineEdit{AssignTo: &d.version, Accessibility: accessible("&Version ID (leave blank for latest):")},
-		PushButton{Text: "C&hoose older version...", OnClicked: g.chooseVersion})...)
+		PushButton{Text: "C&hoose older version", OnClicked: g.chooseVersion})...)
 	rows = append(rows, labeled("Save to &folder:",
 		LineEdit{AssignTo: &d.output, Text: output, Accessibility: accessible("Save to &folder:")},
-		PushButton{Text: "&Browse...", OnClicked: g.browseOutput})...)
+		PushButton{Text: "&Browse", OnClicked: g.browseOutput})...)
 
 	return TabPage{
 		Title:  "Download",
@@ -250,7 +250,7 @@ func (g *gui) chooseVersion() {
 		Children: []Widget{
 			Label{Text: "Newest first. Apple only gives out version IDs. Select one and press Look up to see its version number."},
 			Label{Text: "&Versions:"},
-			ListBox{AssignTo: &list, Model: []string{"Loading..."}, Accessibility: accessible("&Versions:"),
+			ListBox{AssignTo: &list, Model: []string{"Loading"}, Accessibility: accessible("&Versions:"),
 				OnItemActivated: useSelected},
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 				PushButton{Text: "&Look up", OnClicked: func() {
@@ -286,7 +286,7 @@ func (g *gui) chooseVersion() {
 			slices.Reverse(ids)
 			items = slices.Clone(ids)
 			if len(items) == 0 {
-				_ = list.SetModel([]string{"No versions found."})
+				_ = list.SetModel([]string{"No versions found"})
 			} else {
 				_ = list.SetModel(slices.Clone(items))
 				_ = list.SetCurrentIndex(0)

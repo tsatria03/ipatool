@@ -132,7 +132,7 @@ My apps lists every app your Apple Account owns. The first time you move into th
 | Download selected | Alt+D | Sends the selected app to the Download page. |
 | Copy bundle ID | Alt+C | Copies the selected app's bundle ID. |
 | Copy all apps | Alt+A | Copies every matching app as text. |
-| Export to JSON... | Alt+E | Saves every matching app, with details about the export, as a JSON file. |
+| Export to JSON | Alt+E | Saves every matching app, with details about the export, as a JSON file. |
 
 The platform filter and Sort by apply as you arrow through them, and Enter in either one, or in Search my apps, moves to the list.
 

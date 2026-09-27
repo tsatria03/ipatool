@@ -75,7 +75,7 @@ func (g *gui) purchasesTab() TabPage {
 				OnItemActivated: func() { g.sendToDownload(p.table, p.model, g.purchaseFilter()) }},
 			g.listButtons(&p.table, p.model, g.purchaseFilter, &p.download, &p.copy,
 				PushButton{AssignTo: &p.copyAll, Text: "Copy &all apps", OnClicked: g.copyAllApps},
-				PushButton{AssignTo: &p.export, Text: "&Export to JSON...", OnClicked: g.exportApps}),
+				PushButton{AssignTo: &p.export, Text: "&Export to JSON", OnClicked: g.exportApps}),
 		},
 	}
 }
