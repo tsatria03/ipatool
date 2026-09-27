@@ -413,6 +413,21 @@ func (b *backend) versionDetails(ctx context.Context, target, platform string, i
 	})
 }
 
+// ownedAppsAll returns the account's whole purchase history, newest first, in one
+// request (about 12 seconds). Relies on the fork's raised MaxOwnedAppsLimit.
+func (b *backend) ownedAppsAll() ([]App, error) {
+	var apps []App
+	err := b.withAccount(func(acc appstore.Account) error {
+		out, err := b.store.OwnedApps(appstore.OwnedAppsInput{Account: acc, Page: 1, Limit: appstore.MaxOwnedAppsLimit})
+		if err != nil {
+			return err
+		}
+		apps = fromStoreApps(out.Results)
+		return nil
+	})
+	return apps, err
+}
+
 func fromStoreApps(apps []appstore.App) []App {
 	out := make([]App, 0, len(apps))
 	for _, a := range apps {
