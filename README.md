@@ -104,8 +104,8 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Sign in with your Apple Account, including two-factor codes, check which account is signed in, and sign out.
 - Global search: search the whole App Store by name and platform, then send any result straight to the download page.
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
-- See download progress as a percentage, and cancel a download at any time.
-- Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID, filtering by platform, sorting and turning pages are instant.
+- See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
+- Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
 - Sort your apps by purchase date, name or bundle ID (A to Z or Z to A), or by how long they've been on the App Store.
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
 - Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts.
