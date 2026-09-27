@@ -107,12 +107,68 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
 - Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
 - Sort your apps by purchase date, name or bundle ID (A to Z or Z to A), or by how long they've been on the App Store.
+- Copy all your apps to the clipboard as text, or export them to a JSON file, following the current search, platform filter and sort. See [The My apps page](#the-my-apps-page).
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
 - Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts.
 - Switching pages keeps you on the page tabs, and moving between tabs announces just the tab's name.
 - Clear, plain-language messages when something goes wrong, such as a wrong passphrase or an expired sign-in.
 - A log page that shows everything the interface did, with passwords and codes hidden.
 - Your settings are remembered between sessions. You can also choose to remember your keychain passphrase; it is then stored unencrypted on your computer.
+
+### The My apps page
+
+My apps lists every app your Apple Account owns. The first time you move into the page, it fetches your whole purchase history from Apple (about 12 seconds for a few thousand apps) and keeps it for the session, so everything below is instant.
+
+| Control | Shortcut | What it does |
+|---|---|---|
+| Load | Alt+L | Fetches a fresh list from Apple. |
+| Previous page / Next page | Alt+P / Alt+N | Turns the page. The list shows 100 apps at a time. |
+| Platform filter | Alt+T | Shows only apps for one platform (iphone, ipad, appletv, visionos or macos), or all platforms. |
+| Page | Alt+G | Read-only. For example "Page 2 of 36, 3554 apps", or "Page 1 of 1, 13 of 3554 apps match" while searching or filtering. |
+| Search my apps | Alt+S | Type part of an app's name or bundle ID, then press Enter. |
+| Search | Alt+R | Does the same as pressing Enter in Search my apps. |
+| Sort by | Alt+B | Newest or oldest purchase first; name A to Z or Z to A; bundle ID A to Z or Z to A; newest or oldest to the App Store first. |
+| Apps you own | Alt+W | The list: name, bundle ID, version, platforms and app ID. Press Enter on an app to send it to the Download page. |
+| Download selected | Alt+D | Sends the selected app to the Download page. |
+| Copy bundle ID | Alt+C | Copies the selected app's bundle ID. |
+| Copy all apps | Alt+A | Copies every matching app as text. |
+| Export to JSON... | Alt+E | Saves every matching app, with details about the export, as a JSON file. |
+
+The platform filter and Sort by apply as you arrow through them, and Enter in either one, or in Search my apps, moves to the list.
+
+**Copy all apps and Export to JSON** include every page, not just the 100 apps on screen. They follow the platform filter, Search my apps and Sort by, so with nothing narrowed you get all your apps in the chosen order. If your apps haven't loaded yet, they load first.
+
+Copy all apps puts one line per app on the clipboard:
+
+```text
+Game-board; Bundle ID: net.muamal.gameboard; Version: 1.0.5; Platforms: iphone; App ID: 6786885206
+```
+
+Export to JSON suggests `My apps.json` in your download folder and asks before replacing a file. The file describes the export, then lists the apps with the same field names as `ipatool list-purchases --format json`, plus the purchase date:
+
+```json
+{
+  "exportedFrom": "ipatool GUI, My apps",
+  "exported": "2026-09-27T14:05:00-07:00",
+  "totalApps": 3554,
+  "exportedApps": 13,
+  "search": "youtube",
+  "platform": "all platforms",
+  "sortedBy": "Name, A to Z",
+  "apps": [
+    {
+      "name": "BEAT MP3 for YouTube",
+      "bundleID": "com.studio7775.BeatMP3WU",
+      "version": "2.1.4",
+      "platforms": ["iphone", "ipad"],
+      "id": 1084956726,
+      "purchaseDate": "2018-03-04T22:43:07Z"
+    }
+  ]
+}
+```
+
+The file is UTF-8, so app names in any language are kept as they are.
 
 ### Running and building
 
@@ -166,8 +222,8 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `search.go` | Global search page and the app list model shared with My apps |
 | `download.go` | Download page and the Choose older version dialog |
 | `purchases.go` | My apps page |
-| `myapps.go` | Local search, platform filter, sorting and paging for My apps |
-| `myapps_test.go` | Tests for the search, filter, sorting and paging |
+| `myapps.go` | Local search, platform filter, sorting, paging, and the copy and JSON export formats for My apps |
+| `myapps_test.go` | Tests for the search, filter, sorting, paging, sizes and export formats |
 | `messages.go` | Plain-language error messages, such as for paid apps the account hasn't bought |
 | `errors_test.go` | Checks the error messages and the download license rules against a fake App Store |
 | `settings.go` | Saved settings and the app type |
