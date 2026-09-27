@@ -105,7 +105,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Search the App Store by name and platform, then send any result straight to the download page.
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
 - See download progress as a percentage, and cancel a download at any time.
-- Browse the apps your account owns, 25 at a time, filtered by platform.
+- Browse the apps your account owns, 25 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID, filtering by platform and turning pages are instant.
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
 - Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts.
 - Switching pages keeps you on the page tabs, and moving between tabs announces just the tab's name.
@@ -135,6 +135,8 @@ The GUI uses ipatool's engine (`pkg/appstore` and the packages around it) direct
 - **Same behavior as the CLI:** each action follows its `cmd` counterpart, including signing in again and retrying when Apple reports an expired password token, getting a free license when allowed, and copying the license data (sinf) into downloaded packages.
 - **Two-factor codes:** login asks for the code in the middle of the same session, like `ipatool auth login` in interactive mode.
 - **Tasks:** each action runs in the background with a fresh engine session (so a corrected passphrase takes effect immediately), and updates the window on the UI thread.
+- **My apps:** every owned-apps request makes the engine download the whole purchase history (about 12 seconds) and then cut out one page. The GUI therefore fetches the whole list once per session (`backend.ownedAppsAll`), keeps it in memory, and searches, filters and pages through it locally (`myapps.go`). The first load starts when focus first enters the page's controls; Load fetches a fresh list.
+- **Change to ipatool's own code:** to fetch everything in one request, this fork raises `MaxOwnedAppsLimit` in `pkg/appstore/appstore_owned_apps.go` from 100 to 100000 (the related tests in `pkg/appstore` and `cmd` use the constant). The command line tool's `list-purchases --max-results` accepts the larger value too. Keep this in mind when merging upstream changes to that file.
 - **Progress and cancelling:** downloads report progress through a `progressbar` that isn't drawn, read once a second for the status bar and the Result field. Escape cancels the task's context, which stops a download; a cancelled task's result is discarded.
 
 After merging upstream changes, build the GUI and run `go test .` in the `gui` folder, since changes in `pkg/appstore` or `cmd` can affect it.
@@ -161,6 +163,8 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `search.go` | Search page and the app list model shared with My apps |
 | `download.go` | Download page and the Choose older version dialog |
 | `purchases.go` | My apps page |
+| `myapps.go` | Local search, platform filter and paging for My apps |
+| `myapps_test.go` | Tests for the search, filter and paging |
 | `messages.go` | Plain-language error messages, such as for paid apps the account hasn't bought |
 | `errors_test.go` | Checks the error messages and the download license rules against a fake App Store |
 | `settings.go` | Saved settings and the app type |
