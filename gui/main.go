@@ -1,8 +1,8 @@
 // Command ipatool-gui is a screen-reader-friendly Windows front end for ipatool.
 //
 // It uses walk, which builds the window from native Windows controls that NVDA,
-// JAWS and Narrator can read. Every action runs the ipatool command line tool
-// (an exe, or the source folder via go run) in non-interactive JSON mode.
+// JAWS and Narrator can read. It uses ipatool's engine (pkg/) directly, so it
+// works on its own without ipatool.exe; see backend.go.
 package main
 
 import (
@@ -37,7 +37,6 @@ type gui struct {
 	tabs     *walk.TabWidget
 	status   *walk.StatusBarItem
 	settings Settings
-	runner   Runner
 
 	busy       bool
 	busyStatus string
@@ -76,11 +75,13 @@ func main() {
 
 	g.mw.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
 		g.persist()
-		g.runner.Cancel()
+		if g.cancelTask != nil {
+			g.cancelTask()
+		}
 	})
 	g.setStatus("Ready. Press F1 for keyboard shortcuts.")
 	g.goToPage(0)
-	if g.account.passphrase.Text() != "" && g.account.exe.Text() != "" {
+	if g.account.passphrase.Text() != "" {
 		g.checkAccount(false)
 	}
 	app.Run()
@@ -182,82 +183,20 @@ func (g *gui) log(text string) {
 	g.logText.AppendText(strings.ReplaceAll(strings.TrimRight(text, "\n"), "\n", "\r\n") + "\r\n")
 }
 
-// ----- running ipatool ----------------------------------------------------------
+// ----- tasks and settings --------------------------------------------------------
 
-// run starts ipatool in the background and calls onDone on the UI thread when it finishes.
-func (g *gui) run(args []string, status string, needsPassphrase bool, onDone func(Result)) {
-	if g.busy {
-		walk.MsgBox(g.mw, "Busy", "Please wait for the current task to finish, or press Escape to cancel it.",
-			walk.MsgBoxOK|walk.MsgBoxIconWarning)
-		return
-	}
-	exe := strings.TrimSpace(g.account.exe.Text())
-	if exe == "" || resolveExe(exe) != exe {
-		g.error("ipatool not found", "No ipatool exe or ipatool source folder was found. In the \"ipatool program\" "+
-			"field on the Account page, enter the path of ipatool.exe or of the ipatool source folder.")
-		g.focusWidget(0, g.account.exe)
-		return
-	}
-	passphrase := g.account.passphrase.Text()
-	if needsPassphrase && passphrase == "" {
-		g.error("Passphrase needed", "Enter a keychain passphrase on the Account page.")
-		g.focusWidget(0, g.account.passphrase)
-		return
-	}
-
-	full := append(append([]string{}, args...), "--format", "json", "--non-interactive")
-	if passphrase != "" {
-		full = append(full, "--keychain-passphrase", passphrase)
-	}
-
-	if isSourceDir(exe) {
-		status += " (running ipatool from source; after a code change it recompiles first)"
-	}
-	g.log("> ipatool " + strings.Join(maskArgs(args), " "))
-	stopBusy := g.startBusy(status)
-
-	go func() {
-		result := g.runner.Run(exe, full)
-		g.app.Synchronize(func() {
-			stopBusy()
-			out := strings.TrimSpace(result.Output)
-			if out == "" {
-				out = "(no output)"
-			}
-			g.log(out)
-			if g.cancelled {
-				// A cancelled task is not a failure: skip its result and error messages.
-				g.cancelled = false
-				g.log("(cancelled)")
-				g.setStatus("Cancelled.")
-				return
-			}
-			if result.OK() {
-				g.setStatus("Done.")
-			} else {
-				g.setStatus("Failed.")
-			}
-			onDone(result)
-		})
-	}()
-}
-
+// cancel stops the running task (Escape); its result is then discarded.
 func (g *gui) cancel() {
-	if !g.busy {
+	if !g.busy || g.cancelTask == nil {
 		return
 	}
-	if g.cancelTask != nil {
-		g.cancelTask()
-	} else if !g.runner.Cancel() {
-		return
-	}
+	g.cancelTask()
 	g.cancelled = true
 	g.setStatus("Cancelling...")
 }
 
 func (g *gui) persist() {
 	s := Settings{
-		Exe:    strings.TrimSpace(g.account.exe.Text()),
 		Email:  strings.TrimSpace(g.account.email.Text()),
 		Output: strings.TrimSpace(g.download.output.Text()),
 	}

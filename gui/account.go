@@ -13,17 +13,14 @@ import (
 )
 
 type accountPage struct {
-	exe, passphrase, email, password, status *walk.LineEdit
-	remember                                 *walk.CheckBox
+	passphrase, email, password, status *walk.LineEdit
+	remember                            *walk.CheckBox
 }
 
 func (g *gui) accountTab() TabPage {
 	a := &g.account
 
 	rows := []Widget{}
-	rows = append(rows, labeled("ipatool &program (exe or source folder):",
-		LineEdit{AssignTo: &a.exe, Text: resolveExe(g.settings.Exe), Accessibility: accessible("ipatool &program (exe or source folder):")},
-		PushButton{Text: "&Browse...", OnClicked: g.browseExe})...)
 	rows = append(rows, labeled("&Keychain passphrase (not your Apple ID password):",
 		LineEdit{AssignTo: &a.passphrase, Text: g.settings.Passphrase, PasswordMode: true,
 			Accessibility: accessible("&Keychain passphrase (not your Apple ID password):")},
@@ -149,14 +146,6 @@ func (g *gui) logout() {
 			_ = g.account.status.SetText("Signed out.")
 			g.info("Logged out", "You are signed out.")
 		})
-}
-
-func (g *gui) browseExe() {
-	dlg := walk.FileDialog{Title: "Choose ipatool.exe", Filter: "Programs (*.exe)|*.exe"}
-	if ok, _ := dlg.ShowOpen(g.mw); ok {
-		_ = g.account.exe.SetText(dlg.FilePath)
-		g.persist()
-	}
 }
 
 // prompt shows a small dialog with one text box and returns what was typed.
