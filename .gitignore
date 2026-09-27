@@ -5,3 +5,6 @@
 .idea/
 **/*_mock.go
 exp/
+
+# Personal scratchpad notes
+New File*.txt
