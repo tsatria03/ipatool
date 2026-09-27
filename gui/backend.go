@@ -137,7 +137,15 @@ func prepareStateDirectory(os operatingsystem.OperatingSystem, homeDirectory str
 var (
 	errLoginCancelled  = errors.New("login cancelled")
 	errCodeNotAccepted = errors.New("the two-factor code was not accepted; try logging in again")
+	errPaidApp         = errors.New("this is a paid app that the account hasn't bought")
+	errFreeNotOwned    = errors.New("the account doesn't own this free app and getting a license is off")
 )
+
+// isPaidPurchaseRefusal reports the engine's refusal to buy a paid app
+// (pkg/appstore/appstore_purchase.go), which has no exported error value.
+func isPaidPurchaseRefusal(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "purchasing paid apps is not supported")
+}
 
 // login signs in like `ipatool auth login` in interactive mode: if Apple asks for
 // a two-factor code, askCode is called (it shows a prompt and waits) and the same
@@ -254,6 +262,7 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 	}
 
 	var lastErr error
+	var app appstore.App // kept outside the attempt so its price can be checked on failure
 	purchaseRequired, purchased := false, false
 	for attempt := 1; ; attempt++ {
 		path, err := func() (string, error) {
@@ -270,7 +279,7 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 				acc = login.Account
 			}
 
-			app := appstore.App{ID: appID}
+			app = appstore.App{ID: appID}
 			if bundleID != "" {
 				lookup, err := b.store.Lookup(appstore.LookupInput{Account: acc, BundleID: bundleID, Platform: platform})
 				if err != nil {
@@ -313,6 +322,15 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 		}()
 		if err == nil {
 			return downloadResult{path: path, purchased: purchased}, nil
+		}
+		// ipatool can only get licenses for free apps, so a paid app the account
+		// hasn't bought can't be downloaded; say so instead of retrying.
+		if app.Price > 0 && (errors.Is(err, appstore.ErrLicenseRequired) || isPaidPurchaseRefusal(err)) {
+			return downloadResult{}, errPaidApp
+		}
+		// A free app (price known from the lookup) with the license box unticked.
+		if errors.Is(err, appstore.ErrLicenseRequired) && !req.getLicense && bundleID != "" {
+			return downloadResult{}, errFreeNotOwned
 		}
 		retry := errors.Is(err, appstore.ErrPasswordTokenExpired) ||
 			(errors.Is(err, appstore.ErrLicenseRequired) && req.getLicense)

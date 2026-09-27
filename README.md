@@ -161,7 +161,9 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `search.go` | Search page and the app list model shared with My apps |
 | `download.go` | Download page and the Choose older version dialog |
 | `purchases.go` | My apps page |
-| `settings.go` | Saved settings, plain-language error messages and the app type |
+| `messages.go` | Plain-language error messages, such as for paid apps the account hasn't bought |
+| `errors_test.go` | Checks the error messages and the download license rules against a fake App Store |
+| `settings.go` | Saved settings and the app type |
 | `tabs.go` | Page switching and Ctrl+Tab |
 | `winfix.go` | Accessibility workarounds for walk |
 | `run-gui.vbs` | Double-click launcher |

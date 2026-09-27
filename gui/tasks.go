@@ -95,8 +95,3 @@ func (g *gui) runTask(name, status string, work func(ctx context.Context, b *bac
 		})
 	}()
 }
-
-// errorText turns an engine error into the plain-language message shown to the user.
-func errorText(err error) string {
-	return friendlyError(err.Error())
-}
