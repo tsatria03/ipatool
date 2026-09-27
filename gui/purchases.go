@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/tailscale/walk"
 	. "github.com/tailscale/walk/declarative"
 )
 
-const allPlatforms = "all platforms"
+const (
+	allPlatforms = "all platforms"
+	appsPerPage  = 25
+)
 
 type purchasesPage struct {
 	load     *walk.PushButton
@@ -55,19 +58,23 @@ func (g *gui) purchaseFilter() string {
 
 func (g *gui) loadPurchases(page int) {
 	p := &g.purchases
-	args := []string{"list-purchases", "--page", strconv.Itoa(page), "--max-results", "25"}
-	if f := g.purchaseFilter(); f != "" {
-		args = append(args, "--platform", f)
+	filter := g.purchaseFilter()
+	name := fmt.Sprintf("list my apps, page %d", page)
+	if filter != "" {
+		name += " (" + filter + ")"
 	}
-	g.run(args, "Loading your apps.", true, func(result Result) {
-		if !g.fillList(p.table, p.model, result, "Could not load your apps") {
-			return
-		}
-		p.page = page
-		info := fmt.Sprintf("Page %d", page)
-		if total := result.Int("totalCount"); total > 0 {
-			info += fmt.Sprintf(", %d apps in total", total)
-		}
-		_ = p.pageInfo.SetText(info)
-	})
+	g.runTask(name, "Loading your apps.",
+		func(ctx context.Context, b *backend) (any, error) { return b.ownedApps(page, appsPerPage, filter) },
+		func(result any, err error) {
+			owned, _ := result.(ownedPage)
+			if !g.fillList(p.table, p.model, owned.apps, err, "Could not load your apps") {
+				return
+			}
+			p.page = page
+			info := fmt.Sprintf("Page %d", page)
+			if owned.total > 0 {
+				info += fmt.Sprintf(", %d apps in total", owned.total)
+			}
+			_ = p.pageInfo.SetText(info)
+		})
 }

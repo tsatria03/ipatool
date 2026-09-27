@@ -162,6 +162,78 @@ func (b *backend) logout() error {
 	return b.store.Revoke()
 }
 
+// withAccount runs fn with the signed-in account. If Apple reports that the
+// password token expired, it signs in again with the saved credentials and
+// retries once, as cmd/ does for list-purchases and download.
+func (b *backend) withAccount(fn func(acc appstore.Account) error) error {
+	info, err := b.store.AccountInfo()
+	if err != nil {
+		return err
+	}
+	err = fn(info.Account)
+	if errors.Is(err, appstore.ErrPasswordTokenExpired) {
+		out, loginErr := b.store.Login(appstore.LoginInput{Email: info.Account.Email, Password: info.Account.Password})
+		if loginErr != nil {
+			return loginErr
+		}
+		err = fn(out.Account)
+	}
+	return err
+}
+
+// search is `ipatool search`.
+func (b *backend) search(term string, limit int64, platform string) ([]App, error) {
+	p, err := appstore.ParsePlatform(platform)
+	if err != nil {
+		return nil, err
+	}
+	info, err := b.store.AccountInfo()
+	if err != nil {
+		return nil, err
+	}
+	out, err := b.store.Search(appstore.SearchInput{Account: info.Account, Term: term, Limit: limit, Platform: p})
+	if err != nil {
+		return nil, err
+	}
+	return fromStoreApps(out.Results), nil
+}
+
+// ownedPage is one page of `ipatool list-purchases`.
+type ownedPage struct {
+	apps  []App
+	total int
+}
+
+// ownedApps is `ipatool list-purchases`; platform "" means all platforms.
+func (b *backend) ownedApps(page, limit int, platform string) (ownedPage, error) {
+	p, err := appstore.ParsePlatform(platform)
+	if err != nil {
+		return ownedPage{}, err
+	}
+	var result ownedPage
+	err = b.withAccount(func(acc appstore.Account) error {
+		out, err := b.store.OwnedApps(appstore.OwnedAppsInput{Account: acc, Page: page, Limit: limit, Platform: p})
+		if err != nil {
+			return err
+		}
+		result = ownedPage{apps: fromStoreApps(out.Results), total: out.TotalCount}
+		return nil
+	})
+	return result, err
+}
+
+func fromStoreApps(apps []appstore.App) []App {
+	out := make([]App, 0, len(apps))
+	for _, a := range apps {
+		app := App{ID: a.ID, BundleID: a.BundleID, Name: a.Name, Version: a.Version, Price: a.Price}
+		for _, p := range a.Platforms {
+			app.Platforms = append(app.Platforms, string(p))
+		}
+		out = append(out, app)
+	}
+	return out
+}
+
 // accountInfo returns the signed-in account (the equivalent of `ipatool auth info`).
 func (b *backend) accountInfo() (appstore.Account, error) {
 	out, err := b.store.AccountInfo()

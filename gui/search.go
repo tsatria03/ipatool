@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -107,17 +108,23 @@ func (g *gui) runSearch() {
 		_ = s.term.SetFocus()
 		return
 	}
-	args := []string{"search", term, "--limit", s.limit.Text(), "--platform", s.platform.Text()}
-	g.run(args, "Searching.", true, func(r Result) { g.fillList(s.table, s.model, r, "Search failed") })
+	limit, _ := strconv.ParseInt(s.limit.Text(), 10, 64)
+	platform := s.platform.Text()
+	g.runTask(fmt.Sprintf("search %q (%s, up to %d)", term, platform, limit), "Searching.",
+		func(ctx context.Context, b *backend) (any, error) { return b.search(term, limit, platform) },
+		func(result any, err error) {
+			apps, _ := result.([]App)
+			g.fillList(s.table, s.model, apps, err, "Search failed")
+		})
 }
 
-// fillList shows apps from a result and moves focus to the first one so it is read aloud.
-func (g *gui) fillList(table *walk.TableView, model *appModel, result Result, title string) bool {
-	if !result.OK() {
-		g.error(title, result.Error())
+// fillList shows apps (or the error) and moves focus to the first app so it is read aloud.
+func (g *gui) fillList(table *walk.TableView, model *appModel, apps []App, err error, title string) bool {
+	if err != nil {
+		g.error(title, errorText(err))
 		return false
 	}
-	model.apps = result.Apps()
+	model.apps = apps
 	model.PublishRowsReset()
 	g.setStatus(fmt.Sprintf("%d apps found.", len(model.apps)))
 	if len(model.apps) == 0 {
