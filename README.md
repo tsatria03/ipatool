@@ -26,13 +26,20 @@ This is an accessibility-focused fork of [ipatool](https://github.com/majd/ipato
 
 ## Installation
 
-Build `ipatool.exe` from this repository with Go:
+This fork builds two programs with Go:
+
+- `ipatool.exe`, the command line tool.
+- `ipatool-gui.exe`, the accessible GUI, which runs `ipatool.exe` behind the scenes.
+
+Run these commands from the repository folder to build both into the `releases` folder:
 
 ```shell
-$ go build -o ipatool.exe
+$ go build -o releases\ipatool.exe
+$ cd gui
+$ go build -ldflags=-H=windowsgui -o ..\releases\ipatool-gui.exe .
 ```
 
-To use the accessible GUI instead, see [Running and building](#running-and-building).
+Keep both exes in the same folder so the GUI finds `ipatool.exe` automatically. You can also skip building and run either one from source; see [Running and building](#running-and-building).
 
 ## Usage
 
@@ -75,7 +82,7 @@ if running in an automated environment.
 The tool can be compiled for Windows using the Go toolchain.
 
 ```shell
-$ go build -o ipatool.exe
+$ go build -o releases\ipatool.exe
 ```
 
 Builds for other platforms aren't supported by this fork. ipatool's keychain support on macOS and Linux needs C code compiled for those systems (cgo), so it can't be cross-compiled from Windows; use upstream's releases there.
