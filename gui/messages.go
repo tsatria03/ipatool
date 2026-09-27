@@ -81,7 +81,8 @@ func friendlyError(text string) string {
 	case lowered == "invalid response" || strings.HasSuffix(lowered, ": invalid response"):
 		return "Apple didn't send a download for this app. Check that the platform is right, or try again later."
 	case has("app not found"):
-		return "Apple couldn't find that app. Check the bundle ID, or it may have been removed from the App Store in your country."
+		return "Apple couldn't find that app. Check the bundle ID. If the app was removed from the App Store but you own it, " +
+			"enter its App ID instead (My apps shows it), or send it from My apps with Download selected."
 	case lowered == "something went wrong" || strings.HasSuffix(lowered, ": something went wrong"):
 		return "Apple reported an error without details. Try again later."
 	}

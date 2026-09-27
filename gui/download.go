@@ -20,6 +20,14 @@ type downloadPage struct {
 	app, version, output, result *walk.LineEdit
 	platform                     *walk.ComboBox
 	purchase                     *walk.CheckBox
+	// knownIDs maps bundle IDs sent from a list to their app IDs, so apps that
+	// left the App Store (unknown to the bundle ID lookup) still download.
+	knownIDs map[string]int64
+}
+
+// appIDHint returns the remembered app ID for target, or 0.
+func (d *downloadPage) appIDHint(target string) int64 {
+	return d.knownIDs[target]
 }
 
 func (g *gui) downloadTab() TabPage {
@@ -87,6 +95,7 @@ func (g *gui) startDownload() {
 
 	req := downloadRequest{
 		target:     target,
+		appID:      d.appIDHint(target),
 		platform:   d.platform.Text(),
 		versionID:  strings.TrimSpace(d.version.Text()),
 		output:     folder,
@@ -161,6 +170,7 @@ func (g *gui) chooseVersion() {
 		return
 	}
 	platform := g.download.platform.Text()
+	appID := g.download.appIDHint(target)
 
 	var dlg *walk.Dialog
 	var list *walk.ListBox
@@ -199,7 +209,7 @@ func (g *gui) chooseVersion() {
 		name := fmt.Sprintf("look up %d version number(s) of %s (%s)", len(wanted), target, platform)
 		g.runTask(name, "Looking up versions.",
 			func(ctx context.Context, b *backend) (any, error) {
-				return nil, b.versionDetails(ctx, target, platform, wanted, func(id, label string) {
+				return nil, b.versionDetails(ctx, target, appID, platform, wanted, func(id, label string) {
 					g.app.Synchronize(func() {
 						done++
 						if closed {
@@ -272,7 +282,7 @@ func (g *gui) chooseVersion() {
 	_ = list.SetFocus()
 
 	g.runTask(fmt.Sprintf("list versions of %s (%s)", target, platform), "Loading version list.",
-		func(ctx context.Context, b *backend) (any, error) { return b.listVersions(target, platform) },
+		func(ctx context.Context, b *backend) (any, error) { return b.listVersions(target, appID, platform) },
 		func(result any, err error) {
 			if closed {
 				return

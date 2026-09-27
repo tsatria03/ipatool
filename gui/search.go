@@ -195,6 +195,11 @@ func (g *gui) sendToDownload(table *walk.TableView, model *appModel, platform st
 	target := app.BundleID
 	if target == "" {
 		target = strconv.FormatInt(app.ID, 10)
+	} else if app.ID != 0 {
+		if d.knownIDs == nil {
+			d.knownIDs = map[string]int64{}
+		}
+		d.knownIDs[target] = app.ID
 	}
 	_ = d.app.SetText(target)
 	_ = d.platform.SetCurrentIndex(indexOf(platforms, platform))

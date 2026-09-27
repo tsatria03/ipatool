@@ -211,6 +211,7 @@ func (b *backend) search(term string, limit int64, platform string) ([]App, erro
 
 type downloadRequest struct {
 	target     string // bundle ID, or a numeric app ID
+	appID      int64  // the target's app ID if known (from a list); used if the bundle ID lookup fails
 	platform   string
 	versionID  string // external version ID; "" for the latest version
 	output     string // folder or file path
@@ -231,14 +232,9 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 	if err != nil {
 		return downloadResult{}, err
 	}
-	var appID int64
-	bundleID := req.target
-	if id, err := strconv.ParseInt(req.target, 10, 64); err == nil {
-		appID, bundleID = id, ""
-	}
-
 	var lastErr error
 	var app appstore.App // kept outside the attempt so its price can be checked on failure
+	priceKnown := false  // app came from the lookup service, which includes the price
 	purchaseRequired, purchased := false, false
 	for attempt := 1; ; attempt++ {
 		path, err := func() (string, error) {
@@ -255,13 +251,9 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 				acc = login.Account
 			}
 
-			app = appstore.App{ID: appID}
-			if bundleID != "" {
-				lookup, err := b.store.Lookup(appstore.LookupInput{Account: acc, BundleID: bundleID, Platform: platform})
-				if err != nil {
-					return "", err
-				}
-				app = lookup.App
+			app, priceKnown, err = b.resolveApp(acc, req.target, req.appID, platform)
+			if err != nil {
+				return "", err
 			}
 
 			if errors.Is(lastErr, appstore.ErrLicenseRequired) {
@@ -305,7 +297,7 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 			return downloadResult{}, errPaidApp
 		}
 		// A free app (price known from the lookup) with the license box unticked.
-		if errors.Is(err, appstore.ErrLicenseRequired) && !req.getLicense && bundleID != "" {
+		if errors.Is(err, appstore.ErrLicenseRequired) && !req.getLicense && priceKnown {
 			return downloadResult{}, errFreeNotOwned
 		}
 		retry := errors.Is(err, appstore.ErrPasswordTokenExpired) ||
@@ -318,27 +310,35 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 }
 
 // resolveApp turns a bundle ID or numeric app ID into an app, looking bundle IDs
-// up in the account's store as cmd/ does.
-func (b *backend) resolveApp(acc appstore.Account, target string, platform appstore.Platform) (appstore.App, error) {
+// up in the account's store as cmd/ does. The lookup service only knows apps
+// that are for sale, so for an app removed from the App Store it answers "app
+// not found"; if the app ID is known (appID, from a list), that is used instead,
+// which is how iTunes and iPhones download purchases that left the store.
+// priceKnown reports whether the app came from the lookup (with its price).
+func (b *backend) resolveApp(acc appstore.Account, target string, appID int64, platform appstore.Platform) (app appstore.App, priceKnown bool, err error) {
 	if id, err := strconv.ParseInt(target, 10, 64); err == nil {
-		return appstore.App{ID: id}, nil
+		return appstore.App{ID: id}, false, nil
 	}
 	lookup, err := b.store.Lookup(appstore.LookupInput{Account: acc, BundleID: target, Platform: platform})
 	if err != nil {
-		return appstore.App{}, err
+		if appID != 0 && strings.Contains(err.Error(), "app not found") {
+			return appstore.App{ID: appID, BundleID: target}, false, nil // the bundle ID keeps the file name readable
+		}
+		return appstore.App{}, false, err
 	}
-	return lookup.App, nil
+	return lookup.App, true, nil
 }
 
 // listVersions is `ipatool list-versions`: the app's external version IDs, oldest first.
-func (b *backend) listVersions(target, platform string) ([]string, error) {
+// appID is the target's app ID if known (see resolveApp).
+func (b *backend) listVersions(target string, appID int64, platform string) ([]string, error) {
 	p, err := appstore.ParsePlatform(platform)
 	if err != nil {
 		return nil, err
 	}
 	var ids []string
 	err = b.withAccount(func(acc appstore.Account) error {
-		app, err := b.resolveApp(acc, target, p)
+		app, _, err := b.resolveApp(acc, target, appID, p)
 		if err != nil {
 			return err
 		}
@@ -356,13 +356,13 @@ func (b *backend) listVersions(target, platform string) ([]string, error) {
 // session: the app is looked up once, and report is called after each ID with
 // its description (for example "Version 21.38.3, released September 20, 2026").
 // A failed lookup is reported as such and the rest continue; ctx stops the loop.
-func (b *backend) versionDetails(ctx context.Context, target, platform string, ids []string, report func(id, label string)) error {
+func (b *backend) versionDetails(ctx context.Context, target string, appID int64, platform string, ids []string, report func(id, label string)) error {
 	p, err := appstore.ParsePlatform(platform)
 	if err != nil {
 		return err
 	}
 	return b.withAccount(func(acc appstore.Account) error {
-		app, err := b.resolveApp(acc, target, p)
+		app, _, err := b.resolveApp(acc, target, appID, p)
 		if err != nil {
 			return err
 		}

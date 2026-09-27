@@ -49,9 +49,11 @@ func TestErrorText(t *testing.T) {
 // doesn't own. Methods the download path doesn't use panic (nil embedded interface).
 type fakeStore struct {
 	appstore.AppStore
-	price     float64
-	owned     bool
-	purchases int
+	price      float64
+	owned      bool
+	removed    bool // left the App Store: the lookup service no longer knows it
+	purchases  int
+	downloaded appstore.App
 }
 
 func (f *fakeStore) AccountInfo() (appstore.AccountInfoOutput, error) {
@@ -59,6 +61,9 @@ func (f *fakeStore) AccountInfo() (appstore.AccountInfoOutput, error) {
 }
 
 func (f *fakeStore) Lookup(appstore.LookupInput) (appstore.LookupOutput, error) {
+	if f.removed {
+		return appstore.LookupOutput{}, errors.New("app not found") // what the real engine returns
+	}
 	return appstore.LookupOutput{App: appstore.App{ID: 1, BundleID: "com.example.app", Price: f.price}}, nil
 }
 
@@ -71,7 +76,8 @@ func (f *fakeStore) Purchase(in appstore.PurchaseInput) error {
 	return nil
 }
 
-func (f *fakeStore) Download(appstore.DownloadInput) (appstore.DownloadOutput, error) {
+func (f *fakeStore) Download(in appstore.DownloadInput) (appstore.DownloadOutput, error) {
+	f.downloaded = in.App
 	if !f.owned {
 		return appstore.DownloadOutput{}, appstore.ErrLicenseRequired
 	}
@@ -79,6 +85,39 @@ func (f *fakeStore) Download(appstore.DownloadInput) (appstore.DownloadOutput, e
 }
 
 func (f *fakeStore) ReplicateSinf(appstore.ReplicateSinfInput) error { return nil }
+
+func TestRemovedAppDownload(t *testing.T) {
+	// Sent from My apps: the bundle ID lookup fails, the remembered app ID is used.
+	store := &fakeStore{owned: true, removed: true}
+	b := &backend{store: store}
+	req := downloadRequest{target: "com.mobgen.101freealerts", appID: 476204078, platform: "iphone"}
+	if _, err := b.download(context.Background(), req, nil); err != nil {
+		t.Fatalf("with a known app ID: %v", err)
+	}
+	if store.downloaded.ID != 476204078 || store.downloaded.BundleID != "com.mobgen.101freealerts" {
+		t.Errorf("downloaded %+v, want the app ID with the bundle ID kept for the file name", store.downloaded)
+	}
+
+	// Typed by hand, no app ID known: the lookup error comes through.
+	store = &fakeStore{owned: true, removed: true}
+	b = &backend{store: store}
+	req.appID = 0
+	_, err := b.download(context.Background(), req, nil)
+	if err == nil || !strings.Contains(errorText(err), "enter its App ID") {
+		t.Errorf("without an app ID: err = %v, message %q", err, errorText(err))
+	}
+
+	// Other lookup errors are not hidden by the fallback.
+	if _, _, err := (&backend{store: &errLookupStore{}}).resolveApp(appstore.Account{}, "com.x", 5, appstore.PlatformIPhone); err == nil {
+		t.Error("a network error during the lookup should not fall back to the app ID")
+	}
+}
+
+type errLookupStore struct{ appstore.AppStore }
+
+func (errLookupStore) Lookup(appstore.LookupInput) (appstore.LookupOutput, error) {
+	return appstore.LookupOutput{}, errors.New("request failed: dial tcp: i/o timeout")
+}
 
 func TestDownloadLicenseRules(t *testing.T) {
 	tests := []struct {
