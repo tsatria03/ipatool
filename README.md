@@ -22,14 +22,14 @@ This is an accessibility-focused fork of [ipatool](https://github.com/majd/ipato
 
 - Windows 10 or 11.
 - An Apple Account already configured to use the App Store.
-- [Go](https://go.dev/dl/), to build ipatool or run the GUI from source.
+- [Go](https://go.dev/dl/), to build the programs or run them from source.
 
 ## Installation
 
 This fork builds two programs with Go:
 
 - `ipatool.exe`, the command line tool.
-- `ipatool-gui.exe`, the accessible GUI, which runs `ipatool.exe` behind the scenes.
+- `ipatool-gui.exe`, the accessible GUI. It has ipatool built in, so it works on its own; you don't need `ipatool.exe` to use it.
 
 Run these commands from the repository folder to build both into the `releases` folder:
 
@@ -39,7 +39,7 @@ $ cd gui
 $ go build -ldflags=-H=windowsgui -o ..\releases\ipatool-gui.exe .
 ```
 
-Keep both exes in the same folder so the GUI finds `ipatool.exe` automatically. You can also skip building and run either one from source; see [Running and building](#running-and-building).
+Build only the one you want, or both. They share the saved login, so signing in with one also signs in the other. You can also skip building and run the GUI from source; see [Running and building](#running-and-building).
 
 ## Usage
 
@@ -96,14 +96,15 @@ $ go test -v ./...
 
 ## Accessible GUI
 
-The `gui` folder contains a Windows front end for ipatool, written in Go with [walk](https://github.com/tailscale/walk) (Tailscale's maintained fork). walk builds windows from native Win32 controls, which screen readers can read through MSAA. The GUI is its own Go module (`ipatool-gui`), so ipatool's `go.mod` and code are untouched.
+The `gui` folder contains a Windows front end for ipatool, written in Go with [walk](https://github.com/tailscale/walk) (Tailscale's maintained fork). walk builds windows from native Win32 controls, which screen readers can read through MSAA. The GUI is its own Go module (`ipatool-gui`), so ipatool's `go.mod` and code are untouched, and it uses ipatool's engine directly, so `ipatool-gui.exe` is a single standalone program (about 42 MB).
 
 ### Features
 
 - Every field, button and list can be read by screen readers such as NVDA, JAWS and Narrator.
 - Sign in with your Apple Account, including two-factor codes, check which account is signed in, and sign out.
 - Search the App Store by name and platform, then send any result straight to the download page.
-- Download the latest version of an app, or pick an older version from a list that shows each version number.
+- Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
+- See download progress as a percentage, and cancel a download at any time.
 - Browse the apps your account owns, 25 at a time, filtered by platform.
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
 - Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts.
@@ -126,22 +127,17 @@ The Common Controls v6 manifest that walk needs is embedded through `gui/rsrc.sy
 $ go run github.com/akavel/rsrc@latest -manifest app.manifest -o rsrc.syso
 ```
 
-### How it runs ipatool
+### How it works
 
-The GUI doesn't link ipatool's packages. Every action runs the ipatool CLI with `--format json --non-interactive --keychain-passphrase <passphrase>`, with no console window, and parses the JSON lines it prints. The last event that has a `success` field carries the result.
+The GUI uses ipatool's engine (`pkg/appstore` and the packages around it) directly. `gui/go.mod` requires `github.com/majd/ipatool/v2` and replaces it with `../`, so the GUI compiles the repository's own `pkg` folder in place; nothing is copied, and changes to `pkg` are picked up on the next GUI build.
 
-The ipatool to run is chosen in this order:
+- **Shared login:** `cmd` keeps its setup helpers private, so `gui/backend.go` repeats them: the state directory (`~/.ipatool`, or `$XDG_STATE_HOME/ipatool` / `$XDG_DATA_HOME/ipatool`, including the legacy migration), the `cookies` file and the `ipatool-auth.service` keyring with the file backend. This must stay identical to `cmd/common.go`, `cmd/constants.go` and `cmd/state_directory.go`, or the GUI and the command line tool would stop sharing the saved login. `gui/backend_test.go` fails if the copied code or constants drift. Shared dependencies (such as `byteness/keyring` and `jose2go`) are pinned to the versions in ipatool's `go.mod`; after changing dependencies, compare `go list -m all` in both modules.
+- **Same behavior as the CLI:** each action follows its `cmd` counterpart, including signing in again and retrying when Apple reports an expired password token, getting a free license when allowed, and copying the license data (sinf) into downloaded packages.
+- **Two-factor codes:** login asks for the code in the middle of the same session, like `ipatool auth login` in interactive mode.
+- **Tasks:** each action runs in the background with a fresh engine session (so a corrected passphrase takes effect immediately), and updates the window on the UI thread.
+- **Progress and cancelling:** downloads report progress through a `progressbar` that isn't drawn, read once a second for the status bar and the Result field. Escape cancels the task's context, which stops a download; a cancelled task's result is discarded.
 
-1. The path saved in the settings, if the file still exists.
-2. The newest `ipatool*.exe` (by version number in the name) next to the GUI, in the working folder, or in `../releases`. Files with `gui` in the name are skipped.
-3. The ipatool source folder: the nearest folder at or above the working folder whose `go.mod` declares `module github.com/majd/ipatool`. Each command is then run with `go run .` in that folder.
-
-An exe takes priority over a saved source folder as soon as one appears.
-
-Other behavior:
-
-- **Two-factor codes:** in non-interactive mode, `auth login` exits successfully with the message "2FA code is required". The GUI detects that message, asks for the code, and runs the login again with `--auth-code`.
-- **Cancelling:** Escape stops the whole process tree (`taskkill /T`), because with `go run` ipatool is a child of `go.exe`. A cancelled task's result is discarded.
+After merging upstream changes, build the GUI and run `go test .` in the `gui` folder, since changes in `pkg/appstore` or `cmd` can affect it.
 
 ### Settings
 
@@ -149,7 +145,6 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 
 | Key | Contents |
 |---|---|
-| `exe` | ipatool exe or source folder |
 | `email` | Apple Account email |
 | `output` | download folder |
 | `passphrase` | keychain passphrase, in plain text, only if "Remember passphrase" is checked |
@@ -158,12 +153,15 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 
 | File | Purpose |
 |---|---|
-| `main.go` | Main window, menus, shortcuts, and running tasks in the background |
+| `main.go` | Main window, menus and shortcuts |
+| `backend.go` | ipatool engine setup (matching `cmd`) and every App Store action |
+| `backend_test.go` | Checks that the setup copied from `cmd` hasn't drifted; a live account check runs with `IPATOOL_GUI_LIVE=1` |
+| `tasks.go` | Running actions in the background, the busy timer and progress |
 | `account.go` | Account page and the two-factor code prompt |
 | `search.go` | Search page and the app list model shared with My apps |
 | `download.go` | Download page and the Choose older version dialog |
 | `purchases.go` | My apps page |
-| `runner.go` | Settings, finding ipatool, running it, parsing output, plain-language errors |
+| `settings.go` | Saved settings, plain-language error messages and the app type |
 | `tabs.go` | Page switching and Ctrl+Tab |
 | `winfix.go` | Accessibility workarounds for walk |
 | `run-gui.vbs` | Double-click launcher |
