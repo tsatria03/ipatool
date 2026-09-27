@@ -117,6 +117,9 @@ func (g *gui) startDownload() {
 			g.info("Download finished", d.result.Text())
 		})
 	if g.busy { // the task started
+		// Screen readers read the Result field, and Windows brings focus back to
+		// it when the finished or failed message box closes.
+		_ = d.result.SetFocus()
 		g.busyProgress = func() string {
 			text := downloadProgressText(bar.State())
 			if text != "" {
