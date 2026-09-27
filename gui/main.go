@@ -29,7 +29,7 @@ Enter in the Apple ID password box: log in.
 Enter on an app in a results list: send it to the Download page.
 My apps: your apps load the first time you move into the page. Search my apps (Alt+S),
   the platform filter (Alt+T) and Sort by (Alt+B) work instantly; Enter in any of them
-  moves to the list.
+  moves to the list. The Search button (Alt+R) does the same as Enter in Search my apps.
   Load (Alt+L) gets a fresh list from Apple.
 Escape: cancel the task that is running.
 F5: check which account you are signed in with.

@@ -18,11 +18,12 @@ const (
 // is instant; see myapps.go. The first time focus enters the page's controls,
 // the list loads by itself.
 type purchasesPage struct {
-	load, previous, next, download, copy *walk.PushButton
-	filter, sort                         *walk.ComboBox
-	search, pageInfo                     *walk.LineEdit
-	table                                *walk.TableView
-	model                                *appModel
+	load, previous, next, find *walk.PushButton
+	download, copy             *walk.PushButton
+	filter, sort               *walk.ComboBox
+	search, pageInfo           *walk.LineEdit
+	table                      *walk.TableView
+	model                      *appModel
 
 	all        []App // the whole purchase history, newest first
 	loaded     bool  // all holds a fetched list
@@ -58,6 +59,7 @@ func (g *gui) purchasesTab() TabPage {
 							g.searchMyApps()
 						}
 					}},
+				PushButton{AssignTo: &p.find, Text: "Sea&rch", OnClicked: g.searchMyApps},
 				Label{Text: "Sort &by:"},
 				ComboBox{AssignTo: &p.sort, Model: sortChoices, CurrentIndex: 0,
 					Accessibility: accessible("Sort &by:"), OnCurrentIndexChanged: g.myAppsViewChanged},
@@ -75,7 +77,7 @@ func (g *gui) purchasesTab() TabPage {
 // switching to another program never start it.
 func (g *gui) setupMyApps() {
 	p := &g.purchases
-	widgets := []walk.Widget{p.load, p.previous, p.next, p.filter, p.pageInfo, p.search, p.sort, p.table, p.download, p.copy}
+	widgets := []walk.Widget{p.load, p.previous, p.next, p.filter, p.pageInfo, p.search, p.find, p.sort, p.table, p.download, p.copy}
 	for _, w := range widgets {
 		w := w
 		w.FocusedChanged().Attach(func() {
@@ -191,7 +193,7 @@ func (g *gui) myAppsComboEnter() {
 	}
 }
 
-// searchMyApps is Enter in the "Search my apps" box.
+// searchMyApps is Enter in the "Search my apps" box, or the Search button.
 func (g *gui) searchMyApps() {
 	p := &g.purchases
 	apply := func() {
