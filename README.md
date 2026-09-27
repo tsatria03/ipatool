@@ -102,10 +102,11 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 
 - Every field, button and list can be read by screen readers such as NVDA, JAWS and Narrator.
 - Sign in with your Apple Account, including two-factor codes, check which account is signed in, and sign out.
-- Search the App Store by name and platform, then send any result straight to the download page.
+- Global search: search the whole App Store by name and platform, then send any result straight to the download page.
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
 - See download progress as a percentage, and cancel a download at any time.
-- Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID, filtering by platform and turning pages are instant.
+- Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID, filtering by platform, sorting and turning pages are instant.
+- Sort your apps by purchase date, name or bundle ID (A to Z or Z to A), or by how long they've been on the App Store.
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
 - Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts.
 - Switching pages keeps you on the page tabs, and moving between tabs announces just the tab's name.
@@ -160,11 +161,11 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `backend_test.go` | Checks that the setup copied from `cmd` hasn't drifted; a live account check runs with `IPATOOL_GUI_LIVE=1` |
 | `tasks.go` | Running actions in the background, the busy timer and progress |
 | `account.go` | Account page and the two-factor code prompt |
-| `search.go` | Search page and the app list model shared with My apps |
+| `search.go` | Global search page and the app list model shared with My apps |
 | `download.go` | Download page and the Choose older version dialog |
 | `purchases.go` | My apps page |
-| `myapps.go` | Local search, platform filter and paging for My apps |
-| `myapps_test.go` | Tests for the search, filter and paging |
+| `myapps.go` | Local search, platform filter, sorting and paging for My apps |
+| `myapps_test.go` | Tests for the search, filter, sorting and paging |
 | `messages.go` | Plain-language error messages, such as for paid apps the account hasn't bought |
 | `errors_test.go` | Checks the error messages and the download license rules against a fake App Store |
 | `settings.go` | Saved settings and the app type |
