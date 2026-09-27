@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+// CountryCode returns the two-letter country code (such as "US") of an account's
+// store front. Exported for the accessible GUI's availability check.
+func CountryCode(storeFront string) (string, error) {
+	return countryCodeFromStoreFront(storeFront)
+}
+
 func countryCodeFromStoreFront(storeFront string) (string, error) {
 	for key, val := range storeFronts {
 		parts := strings.Split(storeFront, "-")
