@@ -54,6 +54,12 @@ var _ = Describe("AppStore (Search)", func() {
 		Entry("unrecognized devices", `"supportedDevices":["FutureDevice"]`, []Platform{PlatformUnknown}),
 	)
 
+	It("keeps the listed file size", func() {
+		var result searchResult
+		Expect(json.Unmarshal([]byte(`{"resultCount":1,"results":[{"trackId":42,"kind":"software","fileSizeBytes":"392695808"}]}`), &result)).To(Succeed())
+		Expect(result.Results).To(Equal([]App{{ID: 42, Platforms: []Platform{PlatformUnknown}, FileSizeBytes: "392695808"}}))
+	})
+
 	When("request is successful", func() {
 		const (
 			testID       = 0

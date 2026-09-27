@@ -14,6 +14,9 @@ type App struct {
 	Price        float64    `json:"price,omitempty"`
 	PurchaseDate time.Time  `json:"purchaseDate,omitzero"`
 	Platforms    []Platform `json:"platforms,omitzero"`
+	// FileSizeBytes is the size Apple lists in search and lookup results, as the
+	// string Apple sends. It is empty for purchase history entries.
+	FileSizeBytes string `json:"fileSizeBytes,omitempty"`
 }
 
 type VersionHistoryInfo struct {
