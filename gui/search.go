@@ -125,14 +125,15 @@ func (g *gui) searchTab() TabPage {
 }
 
 // listButtons returns the "Download selected" and "Copy bundle ID" row used under
-// both app lists. download and copy optionally receive the buttons (may be nil).
+// both app lists, followed by any extra buttons. download and copy optionally
+// receive the buttons (may be nil).
 func (g *gui) listButtons(table **walk.TableView, model *appModel, platform func() string,
-	download, copy **walk.PushButton) Composite {
-	return Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+	download, copy **walk.PushButton, extra ...Widget) Composite {
+	buttons := []Widget{
 		PushButton{AssignTo: download, Text: "&Download selected", OnClicked: func() { g.sendToDownload(*table, model, platform()) }},
 		PushButton{AssignTo: copy, Text: "&Copy bundle ID", OnClicked: func() { g.copyBundleID(*table, model) }},
-		HSpacer{},
-	}}
+	}
+	return Composite{Layout: HBox{MarginsZero: true}, Children: append(append(buttons, extra...), HSpacer{})}
 }
 
 func (g *gui) runSearch() {

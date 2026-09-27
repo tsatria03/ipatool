@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // My apps keeps the whole purchase history in memory for the session (fetching
@@ -91,6 +95,81 @@ func pageOf(apps []App, page, perPage int) (pageApps []App, current, pages int) 
 		return nil, current, pages
 	}
 	return apps[start:end], current, pages
+}
+
+// exportLines is the text Copy all apps puts on the clipboard: one line per app,
+// for example "Game-board; Bundle ID: net.muamal.gameboard; Version: 1.0.5;
+// Platforms: iphone; App ID: 6786885206". Empty fields are left out.
+func exportLines(apps []App) string {
+	var sb strings.Builder
+	for _, app := range apps {
+		parts := []string{app.Name}
+		add := func(label, value string) {
+			if value != "" {
+				parts = append(parts, label+": "+value)
+			}
+		}
+		add("Bundle ID", app.BundleID)
+		add("Version", app.Version)
+		add("Platforms", strings.Join(app.Platforms, ", "))
+		add("App ID", strconv.FormatInt(app.ID, 10))
+		sb.WriteString(strings.Join(parts, "; ") + "\r\n")
+	}
+	return sb.String()
+}
+
+// exportInfo describes an export: what was shown in My apps when it was made.
+type exportInfo struct {
+	exported         time.Time
+	total            int    // apps the account owns
+	search, platform string // as typed and chosen; platform "" means all platforms
+	sortedBy         string
+}
+
+// exportJSON is the file Export to JSON saves. The app fields use the same
+// names as `ipatool list-purchases --format json`.
+func exportJSON(info exportInfo, apps []App) ([]byte, error) {
+	type exportedApp struct {
+		Name         string   `json:"name"`
+		BundleID     string   `json:"bundleID"`
+		Version      string   `json:"version,omitempty"`
+		Platforms    []string `json:"platforms"`
+		ID           int64    `json:"id"`
+		PurchaseDate string   `json:"purchaseDate,omitempty"`
+	}
+	platform := info.platform
+	if platform == "" {
+		platform = allPlatforms
+	}
+	doc := struct {
+		ExportedFrom string        `json:"exportedFrom"`
+		Exported     string        `json:"exported"`
+		TotalApps    int           `json:"totalApps"`
+		ExportedApps int           `json:"exportedApps"`
+		Search       string        `json:"search"`
+		Platform     string        `json:"platform"`
+		SortedBy     string        `json:"sortedBy"`
+		Apps         []exportedApp `json:"apps"`
+	}{"ipatool GUI, My apps", info.exported.Format(time.RFC3339), info.total, len(apps),
+		strings.TrimSpace(info.search), platform, info.sortedBy, make([]exportedApp, 0, len(apps))}
+	for _, app := range apps {
+		e := exportedApp{Name: app.Name, BundleID: app.BundleID, Version: app.Version, Platforms: app.Platforms, ID: app.ID}
+		if e.Platforms == nil {
+			e.Platforms = []string{}
+		}
+		if !app.PurchaseDate.IsZero() {
+			e.PurchaseDate = app.PurchaseDate.Format(time.RFC3339)
+		}
+		doc.Apps = append(doc.Apps, e)
+	}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false) // keep names like "Tom & Jerry" readable
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(doc); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // pageInfoText describes the current page for the Page field, for example

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -146,6 +148,57 @@ func TestAppColumns(t *testing.T) {
 	}
 	if got := owned.Value(0, 3); got != "" {
 		t.Errorf("My apps price = %q, want blank", got)
+	}
+}
+
+func TestExportLines(t *testing.T) {
+	apps := []App{
+		{Name: "Game-board", BundleID: "net.muamal.gameboard", Version: "1.0.5", Platforms: []string{"iphone"}, ID: 6786885206},
+		{Name: "No version", BundleID: "com.example.x", Platforms: []string{"iphone", "ipad"}, ID: 7},
+	}
+	want := "Game-board; Bundle ID: net.muamal.gameboard; Version: 1.0.5; Platforms: iphone; App ID: 6786885206\r\n" +
+		"No version; Bundle ID: com.example.x; Platforms: iphone, ipad; App ID: 7\r\n"
+	if got := exportLines(apps); got != want {
+		t.Errorf("exportLines:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestExportJSON(t *testing.T) {
+	bought := time.Date(2026, 9, 20, 18, 42, 11, 0, time.UTC)
+	apps := []App{
+		{Name: "腾讯微博 & more", BundleID: "com.tencent.WeiBo", Version: "6.1.2", Platforms: []string{"iphone"}, ID: 373357386, PurchaseDate: bought},
+		{Name: "Old", BundleID: "com.example.old", ID: 5},
+	}
+	info := exportInfo{exported: bought, total: 3554, search: " youtube ", platform: "", sortedBy: "Name, A to Z"}
+	data, err := exportJSON(info, apps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		ExportedFrom, Exported, Search, Platform, SortedBy string
+		TotalApps, ExportedApps                            int
+		Apps                                               []map[string]any
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("not valid JSON: %v\n%s", err, data)
+	}
+	if doc.TotalApps != 3554 || doc.ExportedApps != 2 || doc.Search != "youtube" || doc.Platform != "all platforms" ||
+		doc.SortedBy != "Name, A to Z" || doc.Exported != "2026-09-20T18:42:11Z" || doc.ExportedFrom != "ipatool GUI, My apps" {
+		t.Errorf("heading: %+v", doc)
+	}
+	first := doc.Apps[0]
+	if first["name"] != "腾讯微博 & more" || first["bundleID"] != "com.tencent.WeiBo" || first["id"] != float64(373357386) ||
+		first["purchaseDate"] != "2026-09-20T18:42:11Z" || first["version"] != "6.1.2" {
+		t.Errorf("first app: %v", first)
+	}
+	if _, has := doc.Apps[1]["version"]; has {
+		t.Errorf("empty version should be left out: %v", doc.Apps[1])
+	}
+	if platforms, _ := doc.Apps[1]["platforms"].([]any); platforms == nil {
+		t.Errorf("platforms should be an empty list, not missing or null: %v", doc.Apps[1])
+	}
+	if !strings.Contains(string(data), "腾讯微博 & more") {
+		t.Errorf("names should be written as-is, not escaped:\n%s", data)
 	}
 }
 

@@ -3,9 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/tailscale/walk"
 	. "github.com/tailscale/walk/declarative"
+	"github.com/tailscale/win"
 )
 
 const (
@@ -20,6 +25,7 @@ const (
 type purchasesPage struct {
 	load, previous, next, find *walk.PushButton
 	download, copy             *walk.PushButton
+	copyAll, export            *walk.PushButton
 	filter, sort               *walk.ComboBox
 	search, pageInfo           *walk.LineEdit
 	table                      *walk.TableView
@@ -67,7 +73,9 @@ func (g *gui) purchasesTab() TabPage {
 			Label{Text: "Apps you o&wn:"},
 			TableView{AssignTo: &p.table, Model: p.model, Columns: appColumns(p.model),
 				OnItemActivated: func() { g.sendToDownload(p.table, p.model, g.purchaseFilter()) }},
-			g.listButtons(&p.table, p.model, g.purchaseFilter, &p.download, &p.copy),
+			g.listButtons(&p.table, p.model, g.purchaseFilter, &p.download, &p.copy,
+				PushButton{AssignTo: &p.copyAll, Text: "Copy &all apps", OnClicked: g.copyAllApps},
+				PushButton{AssignTo: &p.export, Text: "&Export to JSON...", OnClicked: g.exportApps}),
 		},
 	}
 }
@@ -77,7 +85,7 @@ func (g *gui) purchasesTab() TabPage {
 // switching to another program never start it.
 func (g *gui) setupMyApps() {
 	p := &g.purchases
-	widgets := []walk.Widget{p.load, p.previous, p.next, p.filter, p.pageInfo, p.search, p.find, p.sort, p.table, p.download, p.copy}
+	widgets := []walk.Widget{p.load, p.previous, p.next, p.filter, p.pageInfo, p.search, p.find, p.sort, p.table, p.download, p.copy, p.copyAll, p.export}
 	for _, w := range widgets {
 		w := w
 		w.FocusedChanged().Attach(func() {
@@ -141,14 +149,12 @@ func (g *gui) fetchMyApps(auto bool, then func()) {
 // sorted apps and updates the Page field. focusList moves focus to the first app.
 func (g *gui) showMyApps(focusList bool) {
 	p := &g.purchases
-	query := p.search.Text()
-	view := filterApps(p.all, g.purchaseFilter(), query) // a new slice, safe to sort
-	sortApps(view, p.sort.CurrentIndex())
+	view := g.myAppsView()
 	apps, current, pages := pageOf(view, p.page, appsPerPage)
 	p.page = current
 	p.model.apps = apps
 	p.model.PublishRowsReset()
-	narrowed := g.purchaseFilter() != "" || query != ""
+	narrowed := g.purchaseFilter() != "" || p.search.Text() != ""
 	_ = p.pageInfo.SetText(pageInfoText(current, pages, len(view), len(p.all), narrowed))
 	if len(apps) > 0 {
 		_ = p.table.SetCurrentIndex(0)
@@ -156,6 +162,89 @@ func (g *gui) showMyApps(focusList bool) {
 			_ = p.table.SetFocus()
 		}
 	}
+}
+
+// myAppsView returns every app matching the platform filter and Search my apps,
+// in the Sort by order: all pages of what the list shows.
+func (g *gui) myAppsView() []App {
+	p := &g.purchases
+	view := filterApps(p.all, g.purchaseFilter(), p.search.Text()) // a new slice, safe to sort
+	sortApps(view, p.sort.CurrentIndex())
+	return view
+}
+
+// withMyApps runs f once the apps are loaded, loading them first if needed.
+func (g *gui) withMyApps(f func()) {
+	if !g.purchases.loaded {
+		g.fetchMyApps(false, f)
+		return
+	}
+	f()
+}
+
+// copyAllApps puts every app in the current view on the clipboard, one line each.
+func (g *gui) copyAllApps() {
+	g.withMyApps(func() {
+		view := g.myAppsView()
+		if len(view) == 0 {
+			g.info("Nothing to copy", "No apps match the current search and platform filter.")
+			return
+		}
+		if err := walk.Clipboard().SetText(exportLines(view)); err != nil {
+			g.error("Could not copy", "Windows didn't accept the text on the clipboard. Try again.")
+			return
+		}
+		text := fmt.Sprintf("Copied %d apps to the clipboard.", len(view))
+		g.setStatus(text)
+		g.info("Apps copied", text)
+	})
+}
+
+// exportApps saves every app in the current view, with a description of the
+// view, as a JSON file the user chooses.
+func (g *gui) exportApps() {
+	g.withMyApps(func() {
+		p := &g.purchases
+		view := g.myAppsView()
+		if len(view) == 0 {
+			g.info("Nothing to export", "No apps match the current search and platform filter.")
+			return
+		}
+		dlg := walk.FileDialog{
+			Title:          "Export apps to JSON",
+			Filter:         "JSON files (*.json)|*.json",
+			InitialDirPath: strings.TrimSpace(g.download.output.Text()),
+			FilePath:       "My apps.json",
+			Flags:          win.OFN_OVERWRITEPROMPT, // walk doesn't ask before replacing a file
+		}
+		if ok, _ := dlg.ShowSave(g.mw); !ok {
+			return
+		}
+		path := dlg.FilePath
+		if !strings.EqualFold(filepath.Ext(path), ".json") {
+			path += ".json"
+			// The dialog only checked the name as typed, without .json.
+			if _, err := os.Stat(path); err == nil && walk.MsgBox(g.mw, "Replace file",
+				filepath.Base(path)+" already exists. Replace it?", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
+				return
+			}
+		}
+		data, err := exportJSON(exportInfo{exported: time.Now(), total: len(p.all), search: p.search.Text(),
+			platform: g.purchaseFilter(), sortedBy: p.sort.Text()}, view)
+		if err == nil {
+			err = os.WriteFile(path, data, 0o644)
+		}
+		if err != nil {
+			g.log("error: " + err.Error())
+			g.error("Could not save", "The file couldn't be saved to "+path+". Choose another folder, "+
+				"or close the file if another program has it open.")
+			return
+		}
+		text := fmt.Sprintf("Saved %d apps to %s.", len(view), path)
+		g.log("> export " + fmt.Sprintf("%d apps to %s", len(view), path))
+		g.setStatus(text)
+		g.info("Apps exported", text)
+	})
 }
 
 func (g *gui) turnMyAppsPage(step int) {

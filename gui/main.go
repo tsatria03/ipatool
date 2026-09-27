@@ -33,6 +33,8 @@ My apps: your apps load the first time you move into the page. Search my apps (A
   the platform filter (Alt+T) and Sort by (Alt+B) work instantly; Enter in any of them
   moves to the list. The Search button (Alt+R) does the same as Enter in Search my apps.
   Load (Alt+L) gets a fresh list from Apple.
+  Copy all apps (Alt+A) copies every matching app (all pages, in the sorted order) as
+  text, one line per app; Export to JSON (Alt+E) saves them as a JSON file.
 Escape: cancel the task that is running.
 F5: check which account you are signed in with.
 F1: this help.`
