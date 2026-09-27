@@ -107,7 +107,8 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
 - Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
 - Sort your apps by purchase date, name or bundle ID (A to Z or Z to A), or by how long they've been on the App Store.
-- Copy all your apps to the clipboard as text, or export them to a JSON file, following the current search, platform filter and sort. See [The My apps page](#the-my-apps-page).
+- See which of your apps are still on the App Store and which have been removed, with the availability filter.
+- Copy all your apps to the clipboard as text, or export them to a JSON file, following the current filters, search and sort. See [The My apps page](#the-my-apps-page).
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
 - Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts.
 - Switching pages keeps you on the page tabs, and moving between tabs announces just the tab's name.
@@ -117,12 +118,13 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 
 ### The My apps page
 
-My apps lists every app your Apple Account owns. The first time you move into the page, it fetches your whole purchase history from Apple (about 12 seconds for a few thousand apps) and keeps it for the session, so everything below is instant.
+My apps lists every app your Apple Account owns. The first time you move into the page, it fetches your whole purchase history from Apple and checks which of those apps are still on your account's App Store (about 15 seconds together for a few thousand apps). It keeps the result for the session, so everything below is instant.
 
 | Control | Shortcut | What it does |
 |---|---|---|
-| Load | Alt+L | Fetches a fresh list from Apple. |
+| Load | Alt+L | Fetches a fresh list from Apple and checks availability again. |
 | Previous page / Next page | Alt+P / Alt+N | Turns the page. The list shows 100 apps at a time. |
+| Availability filter | Alt+I | All apps, Available (still on the App Store), or Unavailable (no longer on the App Store). |
 | Platform filter | Alt+T | Shows only apps for one platform (iphone, ipad, appletv, visionos or macos), or all platforms. |
 | Page | Alt+G | Read-only. For example "Page 2 of 36, 3554 apps", or "Page 1 of 1, 13 of 3554 apps match" while searching or filtering. |
 | Search my apps | Alt+S | Type part of an app's name or bundle ID, then press Enter. |
@@ -134,9 +136,11 @@ My apps lists every app your Apple Account owns. The first time you move into th
 | Copy all apps | Alt+A | Copies every matching app as text. |
 | Export to JSON | Alt+E | Saves every matching app, with details about the export, as a JSON file. |
 
-The platform filter and Sort by apply as you arrow through them, and Enter in either one, or in Search my apps, moves to the list.
+The availability filter, the platform filter and Sort by apply as you arrow through them, and Enter in any of them, or in Search my apps, moves to the list. They all work together: for example, Unavailable with Name, A to Z and the search "radio" lists the radio apps you own that have left the App Store, alphabetically.
 
-**Copy all apps and Export to JSON** include every page, not just the 100 apps on screen. They follow the platform filter, Search my apps and Sort by, so with nothing narrowed you get all your apps in the chosen order. If your apps haven't loaded yet, they load first.
+**Availability** comes from Apple's public lookup service, which only returns apps currently for sale in your account's country. An app that's unavailable may have been removed by its developer or by Apple, or only be sold in other countries. Your purchase history keeps it either way, and you can often still download it. If the check can't reach Apple, your apps still load; All apps works, and the Page field explains that availability couldn't be checked until you press Load again.
+
+**Copy all apps and Export to JSON** include every page, not just the 100 apps on screen. They follow the availability and platform filters, Search my apps and Sort by, so with nothing narrowed you get all your apps in the chosen order. If your apps haven't loaded yet, or are still loading, they wait for the load and then continue. The copied text never includes availability.
 
 Copy all apps puts one line per app on the clipboard:
 
@@ -144,25 +148,27 @@ Copy all apps puts one line per app on the clipboard:
 Game-board; Bundle ID: net.muamal.gameboard; Version: 1.0.5; Platforms: iphone; App ID: 6786885206
 ```
 
-Export to JSON suggests `My apps.json` in your download folder and asks before replacing a file. The file describes the export, then lists the apps with the same field names as `ipatool list-purchases --format json`, plus the purchase date:
+Export to JSON suggests `My apps.json` in your download folder and asks before replacing a file. The file describes the export, then lists the apps with the same field names as `ipatool list-purchases --format json`, plus the purchase date and whether the app is still on the App Store (`available` is left out if availability couldn't be checked):
 
 ```json
 {
   "exportedFrom": "ipatool GUI, My apps",
   "exported": "2026-09-27T14:05:00-07:00",
   "totalApps": 3554,
-  "exportedApps": 13,
-  "search": "youtube",
+  "exportedApps": 14,
+  "availability": "Unavailable",
+  "search": "radio",
   "platform": "all platforms",
   "sortedBy": "Name, A to Z",
   "apps": [
     {
-      "name": "BEAT MP3 for YouTube",
-      "bundleID": "com.studio7775.BeatMP3WU",
-      "version": "2.1.4",
+      "name": "100.9 Cherry FM",
+      "bundleID": "com.kary.radioplayer",
+      "version": "6.0.1",
       "platforms": ["iphone", "ipad"],
-      "id": 1084956726,
-      "purchaseDate": "2018-03-04T22:43:07Z"
+      "id": 891764481,
+      "purchaseDate": "2017-11-22T19:14:16Z",
+      "available": false
     }
   ]
 }
@@ -196,6 +202,8 @@ The GUI uses ipatool's engine (`pkg/appstore` and the packages around it) direct
 - **Changes to ipatool's own code:** keep these in mind when merging upstream changes to those files.
   - To fetch everything in one request, this fork raises `MaxOwnedAppsLimit` in `pkg/appstore/appstore_owned_apps.go` from 100 to 100000 (the related tests in `pkg/appstore` and `cmd` use the constant). The command line tool's `list-purchases --max-results` accepts the larger value too.
   - `appstore.App` in `pkg/appstore/app.go` has a `FileSizeBytes` field, which keeps the size Apple lists in search and lookup results, for Global search's Size column. The command line tool's output is unchanged, because it lists its fields explicitly.
+  - `pkg/appstore/storefront.go` exports `CountryCode`, a wrapper around the private store front to country mapping, so My apps can check availability in the account's country.
+- **Availability check:** after the purchase history loads, `gui/availability.go` sends the owned app IDs to Apple's public lookup service (`itunes.apple.com/lookup`, 150 IDs per request, 4 requests at a time, no sign-in) for the account's country. Apps it doesn't return are marked unavailable. If any request fails, every app stays unknown, so a failed check never makes apps look unavailable.
 - **Progress and cancelling:** downloads report progress through a `progressbar` that isn't drawn, read once a second for the status bar and the Result field. Escape cancels the task's context, which stops a download; a cancelled task's result is discarded.
 
 After merging upstream changes, build the GUI and run `go test .` in the `gui` folder, since changes in `pkg/appstore` or `cmd` can affect it.
@@ -222,7 +230,9 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `search.go` | Global search page and the app list model shared with My apps |
 | `download.go` | Download page and the Choose older version dialog |
 | `purchases.go` | My apps page |
-| `myapps.go` | Local search, platform filter, sorting, paging, and the copy and JSON export formats for My apps |
+| `myapps.go` | Local search, filters, sorting, paging, and the copy and JSON export formats for My apps |
+| `availability.go` | Checks which owned apps are still on the account's App Store |
+| `availability_test.go` | Tests the availability check against a fake lookup service, including failures |
 | `myapps_test.go` | Tests for the search, filter, sorting, paging, sizes and export formats |
 | `messages.go` | Plain-language error messages, such as for paid apps the account hasn't bought |
 | `errors_test.go` | Checks the error messages and the download license rules against a fake App Store |
