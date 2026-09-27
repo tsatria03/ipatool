@@ -44,7 +44,7 @@ func saveSettings(s Settings) {
 }
 
 // App is one app from a search or the owned-apps list. Search results have a
-// price; the purchase history has a purchase date but no price.
+// price and a size; the purchase history has a purchase date but neither.
 type App struct {
 	ID           int64
 	BundleID     string

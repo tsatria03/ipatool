@@ -209,30 +209,6 @@ func (b *backend) search(term string, limit int64, platform string) ([]App, erro
 	return fromStoreApps(out.Results), nil
 }
 
-// ownedPage is one page of `ipatool list-purchases`.
-type ownedPage struct {
-	apps  []App
-	total int
-}
-
-// ownedApps is `ipatool list-purchases`; platform "" means all platforms.
-func (b *backend) ownedApps(page, limit int, platform string) (ownedPage, error) {
-	p, err := appstore.ParsePlatform(platform)
-	if err != nil {
-		return ownedPage{}, err
-	}
-	var result ownedPage
-	err = b.withAccount(func(acc appstore.Account) error {
-		out, err := b.store.OwnedApps(appstore.OwnedAppsInput{Account: acc, Page: page, Limit: limit, Platform: p})
-		if err != nil {
-			return err
-		}
-		result = ownedPage{apps: fromStoreApps(out.Results), total: out.TotalCount}
-		return nil
-	})
-	return result, err
-}
-
 type downloadRequest struct {
 	target     string // bundle ID, or a numeric app ID
 	platform   string

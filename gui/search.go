@@ -153,21 +153,20 @@ func (g *gui) runSearch() {
 }
 
 // fillList shows apps (or the error) and moves focus to the first app so it is read aloud.
-func (g *gui) fillList(table *walk.TableView, model *appModel, apps []App, err error, title string) bool {
+func (g *gui) fillList(table *walk.TableView, model *appModel, apps []App, err error, title string) {
 	if err != nil {
 		g.error(title, errorText(err))
-		return false
+		return
 	}
 	model.apps = apps
 	model.PublishRowsReset()
 	g.setStatus(fmt.Sprintf("%d apps found.", len(model.apps)))
 	if len(model.apps) == 0 {
 		g.info("No results", "No apps found.")
-		return true
+		return
 	}
 	_ = table.SetCurrentIndex(0)
 	_ = table.SetFocus()
-	return true
 }
 
 func selectedApp(table *walk.TableView, model *appModel) (App, bool) {
