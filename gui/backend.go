@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/byteness/keyring"
@@ -12,6 +14,7 @@ import (
 	"github.com/majd/ipatool/v2/pkg/keychain"
 	"github.com/majd/ipatool/v2/pkg/util/machine"
 	"github.com/majd/ipatool/v2/pkg/util/operatingsystem"
+	"github.com/schollz/progressbar/v3"
 )
 
 // The GUI uses ipatool's engine (pkg/) directly instead of running ipatool.exe.
@@ -220,6 +223,104 @@ func (b *backend) ownedApps(page, limit int, platform string) (ownedPage, error)
 		return nil
 	})
 	return result, err
+}
+
+type downloadRequest struct {
+	target     string // bundle ID, or a numeric app ID
+	platform   string
+	versionID  string // external version ID; "" for the latest version
+	output     string // folder or file path
+	getLicense bool   // obtain a free license if the account doesn't own the app
+}
+
+type downloadResult struct {
+	path      string
+	purchased bool
+}
+
+// download is `ipatool download`, following cmd/download.go: up to 3 attempts,
+// signing in again when the password token expired and obtaining a license when
+// one is required (if allowed), then copying the license data (sinf) into the
+// package. progress receives the download progress; ctx cancels it.
+func (b *backend) download(ctx context.Context, req downloadRequest, progress *progressbar.ProgressBar) (downloadResult, error) {
+	platform, err := appstore.ParsePlatform(req.platform)
+	if err != nil {
+		return downloadResult{}, err
+	}
+	var appID int64
+	bundleID := req.target
+	if id, err := strconv.ParseInt(req.target, 10, 64); err == nil {
+		appID, bundleID = id, ""
+	}
+
+	var lastErr error
+	purchaseRequired, purchased := false, false
+	for attempt := 1; ; attempt++ {
+		path, err := func() (string, error) {
+			info, err := b.store.AccountInfo()
+			if err != nil {
+				return "", err
+			}
+			acc := info.Account
+			if errors.Is(lastErr, appstore.ErrPasswordTokenExpired) {
+				login, err := b.store.Login(appstore.LoginInput{Email: acc.Email, Password: acc.Password})
+				if err != nil {
+					return "", err
+				}
+				acc = login.Account
+			}
+
+			app := appstore.App{ID: appID}
+			if bundleID != "" {
+				lookup, err := b.store.Lookup(appstore.LookupInput{Account: acc, BundleID: bundleID, Platform: platform})
+				if err != nil {
+					return "", err
+				}
+				app = lookup.App
+			}
+
+			if errors.Is(lastErr, appstore.ErrLicenseRequired) {
+				purchaseRequired = true
+			}
+			if purchaseRequired {
+				err := b.store.Purchase(appstore.PurchaseInput{Account: acc, App: app, Platform: platform})
+				if err != nil && !errors.Is(err, appstore.ErrLicenseAlreadyExists) {
+					return "", err
+				}
+				purchaseRequired, purchased = false, true
+			}
+
+			out, err := b.store.Download(appstore.DownloadInput{
+				Context:           ctx,
+				Account:           acc,
+				App:               app,
+				OutputPath:        req.output,
+				Progress:          progress,
+				ExternalVersionID: req.versionID,
+				Platform:          platform,
+			})
+			if err != nil {
+				return "", err
+			}
+			// cmd/download.go replicateDownloadSinf: Mac packages without sinfs need none.
+			if platform != appstore.PlatformMacOS || len(out.Sinfs) > 0 {
+				err := b.store.ReplicateSinf(appstore.ReplicateSinfInput{Sinfs: out.Sinfs, PackagePath: out.DestinationPath})
+				if err != nil {
+					return "", err
+				}
+			}
+			return out.DestinationPath, nil
+		}()
+		if err == nil {
+			return downloadResult{path: path, purchased: purchased}, nil
+		}
+		retry := errors.Is(err, appstore.ErrPasswordTokenExpired) ||
+			(errors.Is(err, appstore.ErrLicenseRequired) && req.getLicense)
+		if !retry || attempt == 3 || ctx.Err() != nil {
+			return downloadResult{}, err
+		}
+		lastErr = err
+	}
 }
 
 func fromStoreApps(apps []appstore.App) []App {

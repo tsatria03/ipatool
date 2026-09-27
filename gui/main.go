@@ -44,6 +44,9 @@ type gui struct {
 	busyStart  time.Time
 	cancelled  bool   // the running task was cancelled with Escape
 	cancelTask func() // cancels the running engine task, if any
+	// busyProgress, when set, is called every second while busy; a non-empty
+	// result (e.g. "45 percent") replaces the seconds counter in the status bar.
+	busyProgress func() string
 
 	tabList win.HWND // the native tab strip inside the TabWidget
 

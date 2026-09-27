@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/tailscale/walk"
 	. "github.com/tailscale/walk/declarative"
 )
@@ -73,8 +77,7 @@ func (g *gui) appArgs() ([]string, bool) {
 
 func (g *gui) startDownload() {
 	d := &g.download
-	app, ok := g.appArgs()
-	if !ok {
+	if _, ok := g.appArgs(); !ok {
 		return
 	}
 	folder := strings.TrimSpace(d.output.Text())
@@ -84,28 +87,55 @@ func (g *gui) startDownload() {
 	}
 	g.persist()
 
-	args := append([]string{"download"}, app...)
-	args = append(args, "--platform", d.platform.Text(), "-o", folder)
-	if v := strings.TrimSpace(d.version.Text()); v != "" {
-		args = append(args, "--external-version-id", v)
+	req := downloadRequest{
+		target:     strings.TrimSpace(d.app.Text()),
+		platform:   d.platform.Text(),
+		versionID:  strings.TrimSpace(d.version.Text()),
+		output:     folder,
+		getLicense: d.purchase.Checked(),
 	}
-	if d.purchase.Checked() {
-		args = append(args, "--purchase")
+	name := fmt.Sprintf("download %s (%s)", req.target, req.platform)
+	if req.versionID != "" {
+		name += ", version ID " + req.versionID
 	}
-	_ = d.result.SetText("Downloading...")
-	g.run(args, "Downloading. Large apps can take a while.", true, func(result Result) {
-		if !result.OK() {
-			_ = d.result.SetText("Download failed: " + result.Error())
-			g.error("Download failed", result.Error())
-			return
+
+	// The engine feeds the bar as the file arrives; nothing is drawn (io.Discard).
+	bar := progressbar.NewOptions64(1, progressbar.OptionSetWriter(io.Discard), progressbar.OptionThrottle(time.Second))
+	_ = d.result.SetText("Starting download...")
+	g.runTask(name, "Downloading.",
+		func(ctx context.Context, b *backend) (any, error) { return b.download(ctx, req, bar) },
+		func(result any, err error) {
+			if err != nil {
+				_ = d.result.SetText("Download failed: " + errorText(err))
+				g.error("Download failed", errorText(err))
+				return
+			}
+			r := result.(downloadResult)
+			extra := ""
+			if r.purchased {
+				extra = " A free license was added to your account."
+			}
+			_ = d.result.SetText(fmt.Sprintf("Saved to %s.%s", r.path, extra))
+			g.info("Download finished", d.result.Text())
+		})
+	if g.busy { // the task started
+		g.busyProgress = func() string {
+			text := downloadProgressText(bar.State())
+			if text != "" {
+				_ = d.result.SetText("Downloading: " + text)
+			}
+			return text
 		}
-		extra := ""
-		if result.Str("purchased") == "true" {
-			extra = " A free license was added to your account."
-		}
-		_ = d.result.SetText(fmt.Sprintf("Saved to %s.%s", result.Str("output"), extra))
-		g.info("Download finished", d.result.Text())
-	})
+	}
+}
+
+// downloadProgressText describes download progress, for example
+// "45 percent, 120 MB downloaded", or "" before any data has arrived.
+func downloadProgressText(s progressbar.State) string {
+	if s.CurrentBytes <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d percent, %.0f MB downloaded", int(s.CurrentPercent*100), s.CurrentBytes/1e6)
 }
 
 func (g *gui) browseOutput() {

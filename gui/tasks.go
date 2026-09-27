@@ -23,9 +23,16 @@ func (g *gui) startBusy(status string) (stop func()) {
 			select {
 			case <-ticker.C:
 				g.app.Synchronize(func() {
-					if g.busy {
-						g.setStatus(fmt.Sprintf("%s %d seconds", g.busyStatus, int(time.Since(g.busyStart).Seconds())))
+					if !g.busy {
+						return
 					}
+					if g.busyProgress != nil {
+						if detail := g.busyProgress(); detail != "" {
+							g.setStatus(g.busyStatus + " " + detail)
+							return
+						}
+					}
+					g.setStatus(fmt.Sprintf("%s %d seconds", g.busyStatus, int(time.Since(g.busyStart).Seconds())))
 				})
 			case <-done:
 				return
@@ -36,6 +43,7 @@ func (g *gui) startBusy(status string) (stop func()) {
 		ticker.Stop()
 		close(done)
 		g.busy = false
+		g.busyProgress = nil
 	}
 }
 
