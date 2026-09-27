@@ -58,6 +58,13 @@ func (k keyRouter) OnPreTranslate(msg *win.MSG) bool {
 		g.goToPage((g.tabs.CurrentIndex() + step) % count)
 		return true
 	}
+	// Enter in My apps' platform filter: walk only claims Enter for editable combo
+	// boxes, so the dialog manager would swallow it. An open drop-down closes as usual.
+	if f := g.purchases.filter; f != nil && msg.Message == win.WM_KEYDOWN && msg.WParam == win.VK_RETURN &&
+		msg.HWnd == f.Handle() && win.SendMessage(f.Handle(), win.CB_GETDROPPEDSTATE, 0, 0) == 0 {
+		g.myAppsFilterEnter()
+		return true
+	}
 	// Route keyboard messages through the dialog manager so Tab and Alt+letter
 	// work in the main window, not just in dialogs.
 	return g.mw.OnPreTranslate(msg)

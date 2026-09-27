@@ -27,6 +27,9 @@ Alt + underlined letter: jump to a field or press a button.
 Enter in the search box: search.
 Enter in the Apple ID password box: log in.
 Enter on an app in a results list: send it to the Download page.
+My apps: your apps load the first time you move into the page. Search my apps (Alt+S)
+  and the platform filter (Alt+T) work instantly; Enter in either moves to the list.
+  Load (Alt+L) gets a fresh list from Apple.
 Escape: cancel the task that is running.
 F5: check which account you are signed in with.
 F1: this help.`
@@ -46,6 +49,9 @@ type gui struct {
 	// busyProgress, when set, is called every second while busy; a non-empty
 	// result (e.g. "45 percent") replaces the seconds counter in the status bar.
 	busyProgress func() string
+	// afterTask, when set right after starting a task, runs when that task ends,
+	// including when it was cancelled.
+	afterTask func()
 
 	tabList win.HWND // the native tab strip inside the TabWidget
 
@@ -72,6 +78,7 @@ func main() {
 	fixTableView(g.purchases.table, "Apps you own", "Alt+W")
 	assignControlIDs(g.mw.Handle())
 	g.setupTabs()
+	g.setupMyApps()
 
 	g.mw.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
 		g.persist()

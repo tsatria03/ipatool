@@ -87,16 +87,18 @@ func (g *gui) searchTab() TabPage {
 			Label{Text: "Search resul&ts:"},
 			TableView{AssignTo: &s.table, Model: s.model, Columns: appColumns(),
 				OnItemActivated: func() { g.sendToDownload(s.table, s.model, s.platform.Text()) }},
-			g.listButtons(&s.table, s.model, func() string { return s.platform.Text() }),
+			g.listButtons(&s.table, s.model, func() string { return s.platform.Text() }, nil, nil),
 		},
 	}
 }
 
-// listButtons returns the "Download selected" and "Copy bundle ID" row used under both app lists.
-func (g *gui) listButtons(table **walk.TableView, model *appModel, platform func() string) Composite {
+// listButtons returns the "Download selected" and "Copy bundle ID" row used under
+// both app lists. download and copy optionally receive the buttons (may be nil).
+func (g *gui) listButtons(table **walk.TableView, model *appModel, platform func() string,
+	download, copy **walk.PushButton) Composite {
 	return Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-		PushButton{Text: "&Download selected", OnClicked: func() { g.sendToDownload(*table, model, platform()) }},
-		PushButton{Text: "&Copy bundle ID", OnClicked: func() { g.copyBundleID(*table, model) }},
+		PushButton{AssignTo: download, Text: "&Download selected", OnClicked: func() { g.sendToDownload(*table, model, platform()) }},
+		PushButton{AssignTo: copy, Text: "&Copy bundle ID", OnClicked: func() { g.copyBundleID(*table, model) }},
 		HSpacer{},
 	}}
 }

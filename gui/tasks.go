@@ -47,13 +47,17 @@ func (g *gui) startBusy(status string) (stop func()) {
 	}
 }
 
+func (g *gui) showBusy() {
+	walk.MsgBox(g.mw, "Busy", "Please wait for the current task to finish, or press Escape to cancel it.",
+		walk.MsgBoxOK|walk.MsgBoxIconWarning)
+}
+
 // runTask runs work against ipatool's engine in the background and calls onDone
 // on the UI thread with its result. name is written to the Log page. Escape
 // cancels the task's context; a cancelled task's result is discarded.
 func (g *gui) runTask(name, status string, work func(ctx context.Context, b *backend) (any, error), onDone func(any, error)) {
 	if g.busy {
-		walk.MsgBox(g.mw, "Busy", "Please wait for the current task to finish, or press Escape to cancel it.",
-			walk.MsgBoxOK|walk.MsgBoxIconWarning)
+		g.showBusy()
 		return
 	}
 	passphrase := g.account.passphrase.Text()
@@ -78,6 +82,10 @@ func (g *gui) runTask(name, status string, work func(ctx context.Context, b *bac
 			stopBusy()
 			cancel()
 			g.cancelTask = nil
+			if cleanup := g.afterTask; cleanup != nil {
+				g.afterTask = nil
+				cleanup() // runs even when the task was cancelled
+			}
 			if g.cancelled {
 				g.cancelled = false
 				g.log("(cancelled)")
