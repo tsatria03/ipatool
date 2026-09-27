@@ -30,6 +30,7 @@ Enter on an app in a results list: send it to the Download page.
 Download (Alt+D on the Download page): starts the download and moves you to the
   Result field, which shows the progress.
 My apps: your apps load the first time you move into the page. Search my apps (Alt+S),
+  the availability filter (Alt+I: all apps, available, or no longer on the App Store),
   the platform filter (Alt+T) and Sort by (Alt+B) work instantly; Enter in any of them
   moves to the list. The Search button (Alt+R) does the same as Enter in Search my apps.
   Load (Alt+L) gets a fresh list from Apple.

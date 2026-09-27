@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/tailscale/walk"
@@ -26,7 +29,7 @@ type purchasesPage struct {
 	load, previous, next, find *walk.PushButton
 	download, copy             *walk.PushButton
 	copyAll, export            *walk.PushButton
-	filter, sort               *walk.ComboBox
+	availability, filter, sort *walk.ComboBox
 	search, pageInfo           *walk.LineEdit
 	table                      *walk.TableView
 	model                      *appModel
@@ -36,6 +39,10 @@ type purchasesPage struct {
 	loading    bool  // a fetch from Apple is running
 	autoLoaded bool  // the first-visit load has been tried this session
 	page       int
+	// availabilityErr is why the availability check failed (nil when it worked);
+	// the apps then have unknown availability.
+	availabilityErr error
+	whenLoaded      []func() // actions waiting for the running load (Search, Copy all apps...)
 }
 
 func (g *gui) purchasesTab() TabPage {
@@ -51,6 +58,9 @@ func (g *gui) purchasesTab() TabPage {
 				PushButton{AssignTo: &p.load, Text: "&Load", OnClicked: func() { g.fetchMyApps(false, nil) }},
 				PushButton{AssignTo: &p.previous, Text: "&Previous page", OnClicked: func() { g.turnMyAppsPage(-1) }},
 				PushButton{AssignTo: &p.next, Text: "&Next page", OnClicked: func() { g.turnMyAppsPage(+1) }},
+				Label{Text: "Availab&ility filter:"},
+				ComboBox{AssignTo: &p.availability, Model: availabilityChoices, CurrentIndex: 0,
+					Accessibility: accessible("Availab&ility filter:"), OnCurrentIndexChanged: g.myAppsViewChanged},
 				Label{Text: "Pla&tform filter:"},
 				ComboBox{AssignTo: &p.filter, Model: append([]string{allPlatforms}, platforms...), CurrentIndex: 0,
 					Accessibility: accessible("Pla&tform filter:"), OnCurrentIndexChanged: g.myAppsViewChanged},
@@ -85,7 +95,7 @@ func (g *gui) purchasesTab() TabPage {
 // switching to another program never start it.
 func (g *gui) setupMyApps() {
 	p := &g.purchases
-	widgets := []walk.Widget{p.load, p.previous, p.next, p.filter, p.pageInfo, p.search, p.find, p.sort, p.table, p.download, p.copy, p.copyAll, p.export}
+	widgets := []walk.Widget{p.load, p.previous, p.next, p.availability, p.filter, p.pageInfo, p.search, p.find, p.sort, p.table, p.download, p.copy, p.copyAll, p.export}
 	for _, w := range widgets {
 		w := w
 		w.FocusedChanged().Attach(func() {
@@ -109,7 +119,13 @@ func (g *gui) purchaseFilter() string {
 func (g *gui) fetchMyApps(auto bool, then func()) {
 	p := &g.purchases
 	if p.loading {
-		return // e.g. Alt+L focused Load, which started the first-visit load, then clicked it
+		// E.g. Alt+L focused Load, which started the first-visit load, then
+		// clicked it; or Copy all apps during the first-visit load: run it after.
+		if then != nil {
+			p.whenLoaded = append(p.whenLoaded, then)
+			g.setStatus("Your apps are still loading; this will continue when they're ready.")
+		}
+		return
 	}
 	if g.busy {
 		if auto {
@@ -120,9 +136,37 @@ func (g *gui) fetchMyApps(auto bool, then func()) {
 		g.showBusy()
 		return
 	}
+	type loadResult struct {
+		apps            []App
+		availabilityErr error
+	}
+	var checked, batches atomic.Int32 // availability progress, for the status bar
+	if then != nil {
+		p.whenLoaded = []func(){then}
+	}
 	g.runTask("load all my apps", "Loading all your apps from Apple.",
-		func(ctx context.Context, b *backend) (any, error) { return b.ownedAppsAll() },
+		func(ctx context.Context, b *backend) (any, error) {
+			apps, country, err := b.ownedAppsAll()
+			if err != nil {
+				return nil, err
+			}
+			// Then check which apps are still on the account's App Store; a
+			// failure there doesn't stop the apps from loading.
+			g.app.Synchronize(func() { g.busyStatus = "Checking which of your apps are still on the App Store." })
+			var availabilityErr error
+			if country == "" {
+				availabilityErr = errors.New("the account's App Store country is unknown")
+			} else {
+				availabilityErr = checkAvailability(ctx, http.DefaultClient, country, apps, func(done, total int) {
+					checked.Store(int32(done))
+					batches.Store(int32(total))
+				})
+			}
+			return loadResult{apps, availabilityErr}, nil
+		},
 		func(result any, err error) {
+			pending := p.whenLoaded
+			p.whenLoaded = nil
 			if err != nil {
 				if auto {
 					_ = p.pageInfo.SetText("Not loaded: " + errorText(err))
@@ -132,16 +176,39 @@ func (g *gui) fetchMyApps(auto bool, then func()) {
 				}
 				return
 			}
-			p.all, p.loaded, p.page = result.([]App), true, 1
+			r := result.(loadResult)
+			p.all, p.availabilityErr, p.loaded, p.page = r.apps, r.availabilityErr, true, 1
 			g.showMyApps(!auto)
-			g.setStatus(fmt.Sprintf("%d apps loaded.", len(p.all)))
-			if then != nil {
-				then()
+			status := fmt.Sprintf("%d apps loaded.", len(p.all))
+			if r.availabilityErr != nil {
+				g.log("availability check failed: " + r.availabilityErr.Error())
+				status += " Couldn't check which are still on the App Store."
+			} else {
+				unavailable := len(filterApps(p.all, 2, "", ""))
+				g.log(fmt.Sprintf("availability: %d available, %d unavailable", len(p.all)-unavailable, unavailable))
+				status = fmt.Sprintf("%d apps loaded, %d no longer on the App Store.", len(p.all), unavailable)
+			}
+			g.setStatus(status)
+			for _, f := range pending {
+				f()
 			}
 		})
 	if g.busy { // the task started
 		p.loading = true
-		g.afterTask = func() { p.loading = false } // also after Escape
+		g.afterTask = func() { // also after Escape
+			p.loading = false
+			if g.cancelled {
+				p.whenLoaded = nil
+			}
+		}
+		g.busyProgress = func() string {
+			if total := batches.Load(); total > 0 {
+				return fmt.Sprintf("%d of %d", checked.Load(), total)
+			}
+			return ""
+		}
+	} else {
+		p.whenLoaded = nil
 	}
 }
 
@@ -154,8 +221,13 @@ func (g *gui) showMyApps(focusList bool) {
 	p.page = current
 	p.model.apps = apps
 	p.model.PublishRowsReset()
-	narrowed := g.purchaseFilter() != "" || p.search.Text() != ""
-	_ = p.pageInfo.SetText(pageInfoText(current, pages, len(view), len(p.all), narrowed))
+	narrowed := p.availability.CurrentIndex() > 0 || g.purchaseFilter() != "" || p.search.Text() != ""
+	info := pageInfoText(current, pages, len(view), len(p.all), narrowed)
+	if p.availability.CurrentIndex() > 0 && p.availabilityErr != nil {
+		info = "Couldn't check which apps are still on the App Store: " + errorText(p.availabilityErr) +
+			" Press Load (Alt+L) to try again."
+	}
+	_ = p.pageInfo.SetText(info)
 	if len(apps) > 0 {
 		_ = p.table.SetCurrentIndex(0)
 		if focusList {
@@ -164,11 +236,11 @@ func (g *gui) showMyApps(focusList bool) {
 	}
 }
 
-// myAppsView returns every app matching the platform filter and Search my apps,
-// in the Sort by order: all pages of what the list shows.
+// myAppsView returns every app matching the availability and platform filters
+// and Search my apps, in the Sort by order: all pages of what the list shows.
 func (g *gui) myAppsView() []App {
 	p := &g.purchases
-	view := filterApps(p.all, g.purchaseFilter(), p.search.Text()) // a new slice, safe to sort
+	view := filterApps(p.all, p.availability.CurrentIndex(), g.purchaseFilter(), p.search.Text()) // a new slice, safe to sort
 	sortApps(view, p.sort.CurrentIndex())
 	return view
 }
@@ -187,7 +259,7 @@ func (g *gui) copyAllApps() {
 	g.withMyApps(func() {
 		view := g.myAppsView()
 		if len(view) == 0 {
-			g.info("Nothing to copy", "No apps match the current search and platform filter.")
+			g.info("Nothing to copy", "No apps match the current filters and search.")
 			return
 		}
 		if err := walk.Clipboard().SetText(exportLines(view)); err != nil {
@@ -207,7 +279,7 @@ func (g *gui) exportApps() {
 		p := &g.purchases
 		view := g.myAppsView()
 		if len(view) == 0 {
-			g.info("Nothing to export", "No apps match the current search and platform filter.")
+			g.info("Nothing to export", "No apps match the current filters and search.")
 			return
 		}
 		dlg := walk.FileDialog{
@@ -229,7 +301,7 @@ func (g *gui) exportApps() {
 				return
 			}
 		}
-		data, err := exportJSON(exportInfo{exported: time.Now(), total: len(p.all), search: p.search.Text(),
+		data, err := exportJSON(exportInfo{exported: time.Now(), total: len(p.all), availability: p.availability.Text(), search: p.search.Text(),
 			platform: g.purchaseFilter(), sortedBy: p.sort.Text()}, view)
 		if err == nil {
 			err = os.WriteFile(path, data, 0o644)
@@ -258,7 +330,7 @@ func (g *gui) turnMyAppsPage(step int) {
 	g.setStatus(p.pageInfo.Text())
 }
 
-// myAppsViewChanged applies a new platform filter or sort order instantly; focus
+// myAppsViewChanged applies a new availability or platform filter or sort order instantly; focus
 // stays on the combo box so arrowing through the choices keeps working.
 func (g *gui) myAppsViewChanged() {
 	p := &g.purchases
@@ -270,7 +342,7 @@ func (g *gui) myAppsViewChanged() {
 	g.setStatus(p.pageInfo.Text())
 }
 
-// myAppsComboEnter is Enter in the platform filter or Sort by: go to the list.
+// myAppsComboEnter is Enter in the availability or platform filter or Sort by: go to the list.
 func (g *gui) myAppsComboEnter() {
 	p := &g.purchases
 	if !p.loaded {

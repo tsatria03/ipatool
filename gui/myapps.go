@@ -15,12 +15,16 @@ import (
 // it takes about 12 seconds, because Apple always sends the full history), and
 // searches, filters and pages through it locally, which is instant.
 
-// filterApps returns the apps available on platform ("" for all platforms)
-// whose name or bundle ID contains query (case-insensitive; "" matches all).
-func filterApps(all []App, platform, query string) []App {
+// filterApps returns the apps matching the availabilityChoices entry, available
+// on platform ("" for all platforms), whose name or bundle ID contains query
+// (case-insensitive; "" matches all).
+func filterApps(all []App, availabilityChoice int, platform, query string) []App {
 	query = strings.ToLower(strings.TrimSpace(query))
 	var out []App
 	for _, app := range all {
+		if !matchesAvailability(app, availabilityChoice) {
+			continue
+		}
 		if platform != "" && !contains(app.Platforms, platform) {
 			continue
 		}
@@ -122,6 +126,7 @@ func exportLines(apps []App) string {
 type exportInfo struct {
 	exported         time.Time
 	total            int    // apps the account owns
+	availability     string // the Availability filter choice
 	search, platform string // as typed and chosen; platform "" means all platforms
 	sortedBy         string
 }
@@ -136,26 +141,36 @@ func exportJSON(info exportInfo, apps []App) ([]byte, error) {
 		Platforms    []string `json:"platforms"`
 		ID           int64    `json:"id"`
 		PurchaseDate string   `json:"purchaseDate,omitempty"`
+		Available    *bool    `json:"available,omitempty"` // left out when not checked
 	}
 	platform := info.platform
 	if platform == "" {
 		platform = allPlatforms
+	}
+	availabilityChoice := info.availability
+	if availabilityChoice == "" {
+		availabilityChoice = availabilityChoices[0]
 	}
 	doc := struct {
 		ExportedFrom string        `json:"exportedFrom"`
 		Exported     string        `json:"exported"`
 		TotalApps    int           `json:"totalApps"`
 		ExportedApps int           `json:"exportedApps"`
+		Availability string        `json:"availability"`
 		Search       string        `json:"search"`
 		Platform     string        `json:"platform"`
 		SortedBy     string        `json:"sortedBy"`
 		Apps         []exportedApp `json:"apps"`
-	}{"ipatool GUI, My apps", info.exported.Format(time.RFC3339), info.total, len(apps),
+	}{"ipatool GUI, My apps", info.exported.Format(time.RFC3339), info.total, len(apps), availabilityChoice,
 		strings.TrimSpace(info.search), platform, info.sortedBy, make([]exportedApp, 0, len(apps))}
 	for _, app := range apps {
 		e := exportedApp{Name: app.Name, BundleID: app.BundleID, Version: app.Version, Platforms: app.Platforms, ID: app.ID}
 		if e.Platforms == nil {
 			e.Platforms = []string{}
+		}
+		if app.Availability != availabilityUnknown {
+			available := app.Availability == availabilityAvailable
+			e.Available = &available
 		}
 		if !app.PurchaseDate.IsZero() {
 			e.PurchaseDate = app.PurchaseDate.Format(time.RFC3339)

@@ -40,7 +40,7 @@ func TestFilterApps(t *testing.T) {
 		{"", "no such app", 0},   // no match
 	}
 	for _, tt := range tests {
-		if got := filterApps(all, tt.platform, tt.query); len(got) != tt.want {
+		if got := filterApps(all, 0, tt.platform, tt.query); len(got) != tt.want {
 			t.Errorf("filterApps(%q, %q) = %d apps, want %d", tt.platform, tt.query, len(got), tt.want)
 		}
 	}
