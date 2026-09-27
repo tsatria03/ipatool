@@ -16,24 +16,23 @@
 
 This is an accessibility-focused fork of [ipatool](https://github.com/majd/ipatool) by Majd Alfhaily. The command line tool works exactly as upstream; this fork adds an accessible Windows interface that works with screen readers such as NVDA, JAWS and Narrator. See [Accessible GUI](#accessible-gui) for what it does and how it works.
 
+**This fork supports Windows only.** On macOS, Linux or iOS, use upstream [ipatool](https://github.com/majd/ipatool): download it from its [releases](https://github.com/majd/ipatool/releases), or on macOS install it with `brew install ipatool`.
+
 ## Requirements
 
-- A supported operating system (macOS, Linux, Windows or iOS).
+- Windows 10 or 11.
 - An Apple Account already configured to use the App Store.
+- [Go](https://go.dev/dl/), to build ipatool or run the GUI from source.
 
 ## Installation
 
-### Linux and Windows
-
-You can grab the latest version of `ipatool` from [GitHub releases](https://github.com/majd/ipatool/releases).
-
-### macOS
-
-You can install `ipatool` using [Homebrew](https://brew.sh).
+Build `ipatool.exe` from this repository with Go:
 
 ```shell
-$ brew install ipatool
+$ go build -o ipatool.exe
 ```
+
+To use the accessible GUI instead, see [Running and building](#running-and-building).
 
 ## Usage
 
@@ -73,11 +72,13 @@ if running in an automated environment.
 
 ## Compiling
 
-The tool can be compiled using the Go toolchain.
+The tool can be compiled for Windows using the Go toolchain.
 
 ```shell
-$ go build -o ipatool
+$ go build -o ipatool.exe
 ```
+
+Builds for other platforms aren't supported by this fork. ipatool's keychain support on macOS and Linux needs C code compiled for those systems (cgo), so it can't be cross-compiled from Windows; use upstream's releases there.
 
 Unit tests can be executed with the following commands.
 
