@@ -131,6 +131,37 @@ func prepareStateDirectory(os operatingsystem.OperatingSystem, homeDirectory str
 	return stateDirectory, nil
 }
 
+var (
+	errLoginCancelled  = errors.New("login cancelled")
+	errCodeNotAccepted = errors.New("the two-factor code was not accepted; try logging in again")
+)
+
+// login signs in like `ipatool auth login` in interactive mode: if Apple asks for
+// a two-factor code, askCode is called (it shows a prompt and waits) and the same
+// session retries with the code.
+func (b *backend) login(email, password string, askCode func() (string, bool)) (appstore.Account, error) {
+	out, err := b.store.Login(appstore.LoginInput{Email: email, Password: password})
+	if errors.Is(err, appstore.ErrAuthCodeRequired) {
+		code, ok := askCode()
+		if !ok || code == "" {
+			return appstore.Account{}, errLoginCancelled
+		}
+		out, err = b.store.Login(appstore.LoginInput{Email: email, Password: password, AuthCode: code})
+		if errors.Is(err, appstore.ErrAuthCodeRequired) {
+			return appstore.Account{}, errCodeNotAccepted
+		}
+	}
+	if err != nil {
+		return appstore.Account{}, err
+	}
+	return out.Account, nil
+}
+
+// logout removes the saved login (`ipatool auth revoke`).
+func (b *backend) logout() error {
+	return b.store.Revoke()
+}
+
 // accountInfo returns the signed-in account (the equivalent of `ipatool auth info`).
 func (b *backend) accountInfo() (appstore.Account, error) {
 	out, err := b.store.AccountInfo()

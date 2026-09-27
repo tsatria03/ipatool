@@ -6,7 +6,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -43,7 +42,8 @@ type gui struct {
 	busy       bool
 	busyStatus string
 	busyStart  time.Time
-	cancelled  bool // the running task was cancelled with Escape
+	cancelled  bool   // the running task was cancelled with Escape
+	cancelTask func() // cancels the running engine task, if any
 
 	tabList win.HWND // the native tab strip inside the TabWidget
 
@@ -210,36 +210,13 @@ func (g *gui) run(args []string, status string, needsPassphrase bool, onDone fun
 	if isSourceDir(exe) {
 		status += " (running ipatool from source; after a code change it recompiles first)"
 	}
-	g.busy = true
-	g.busyStatus = status
-	g.busyStart = time.Now()
-	g.setStatus(status)
 	g.log("> ipatool " + strings.Join(maskArgs(args), " "))
-
-	// Count seconds in the status bar until the task finishes.
-	ticker := time.NewTicker(time.Second)
-	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				g.app.Synchronize(func() {
-					if g.busy {
-						g.setStatus(fmt.Sprintf("%s %d seconds", g.busyStatus, int(time.Since(g.busyStart).Seconds())))
-					}
-				})
-			case <-done:
-				return
-			}
-		}
-	}()
+	stopBusy := g.startBusy(status)
 
 	go func() {
 		result := g.runner.Run(exe, full)
 		g.app.Synchronize(func() {
-			ticker.Stop()
-			close(done)
-			g.busy = false
+			stopBusy()
 			out := strings.TrimSpace(result.Output)
 			if out == "" {
 				out = "(no output)"
@@ -263,10 +240,16 @@ func (g *gui) run(args []string, status string, needsPassphrase bool, onDone fun
 }
 
 func (g *gui) cancel() {
-	if g.busy && g.runner.Cancel() {
-		g.cancelled = true
-		g.setStatus("Cancelling...")
+	if !g.busy {
+		return
 	}
+	if g.cancelTask != nil {
+		g.cancelTask()
+	} else if !g.runner.Cancel() {
+		return
+	}
+	g.cancelled = true
+	g.setStatus("Cancelling...")
 }
 
 func (g *gui) persist() {

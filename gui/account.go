@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
 
+	"github.com/majd/ipatool/v2/pkg/appstore"
 	"github.com/tailscale/walk"
 	. "github.com/tailscale/walk/declarative"
 )
@@ -65,66 +68,67 @@ func (g *gui) login() {
 		return
 	}
 	g.persist()
-	args := []string{"auth", "login", "-e", email, "-p", password}
-	g.run(args, "Logging in. The first login can take a minute.", true, func(r Result) { g.onLogin(r, args) })
+	g.runTask("log in as "+email, "Logging in. The first login can take a minute.",
+		func(ctx context.Context, b *backend) (any, error) {
+			return b.login(email, password, g.askTwoFactorCode)
+		},
+		func(result any, err error) {
+			switch {
+			case errors.Is(err, errLoginCancelled):
+				g.setStatus("Login cancelled.")
+			case err != nil:
+				g.error("Login failed", errorText(err))
+			default:
+				_ = g.account.password.SetText("")
+				g.showAccount(result.(appstore.Account))
+				g.info("Logged in", g.account.status.Text())
+			}
+		})
 }
 
-func (g *gui) onLogin(result Result, args []string) {
-	if !result.OK() {
-		g.error("Login failed", result.Error())
-		return
+// askTwoFactorCode is called from the login task's goroutine: it shows the code
+// prompt on the UI thread and waits for the answer. Only digits are kept.
+func (g *gui) askTwoFactorCode() (string, bool) {
+	type answer struct {
+		code string
+		ok   bool
 	}
-	alreadySentCode := false
-	for _, arg := range args {
-		alreadySentCode = alreadySentCode || arg == "--auth-code"
-	}
-	if result.HasMessage(twoFAHint) {
-		if alreadySentCode {
-			g.error("Login failed", "The code was not accepted. Try logging in again.")
-			return
-		}
-		code, ok := prompt(g.mw, "Two-factor code",
-			"Apple sent a 6-digit code to your trusted devices. Enter it here:")
-		code = strings.Map(func(r rune) rune {
+	answers := make(chan answer)
+	g.app.Synchronize(func() {
+		code, ok := prompt(g.mw, "Two-factor code", "Apple sent a 6-digit code to your trusted devices. Enter it here:")
+		answers <- answer{strings.Map(func(r rune) rune {
 			if unicode.IsDigit(r) {
 				return r
 			}
 			return -1
-		}, code)
-		if !ok || code == "" {
-			g.setStatus("Login cancelled.")
-			return
-		}
-		retry := append(append([]string{}, args...), "--auth-code", code)
-		g.run(retry, "Verifying code.", true, func(r Result) { g.onLogin(r, retry) })
-		return
-	}
-	_ = g.account.password.SetText("")
-	g.showAccount(result)
-	g.info("Logged in", g.account.status.Text())
-}
-
-// checkAccount runs `auth info`. When announce is true, focus moves to the
-// Account status field so screen readers read the result aloud.
-func (g *gui) checkAccount(announce bool) {
-	g.run([]string{"auth", "info"}, "Checking account.", true, func(result Result) {
-		if result.OK() {
-			g.showAccount(result)
-		} else {
-			_ = g.account.status.SetText(result.Error())
-		}
-		g.setStatus(g.account.status.Text())
-		if announce {
-			g.focusWidget(0, g.account.status)
-			g.account.status.SetTextSelection(0, -1)
-		}
+		}, code), ok}
 	})
+	a := <-answers
+	return a.code, a.ok
 }
 
-func (g *gui) showAccount(result Result) {
-	name, email := result.Str("name"), result.Str("email")
-	if email != "" {
-		_ = g.account.status.SetText(fmt.Sprintf("Signed in as %s (%s)", name, email))
+// checkAccount shows the signed-in account. When announce is true, focus moves to
+// the Account status field so screen readers read the result aloud.
+func (g *gui) checkAccount(announce bool) {
+	g.runTask("check account", "Checking account.",
+		func(ctx context.Context, b *backend) (any, error) { return b.accountInfo() },
+		func(result any, err error) {
+			if err != nil {
+				_ = g.account.status.SetText(errorText(err))
+			} else {
+				g.showAccount(result.(appstore.Account))
+			}
+			g.setStatus(g.account.status.Text())
+			if announce {
+				g.focusWidget(0, g.account.status)
+				g.account.status.SetTextSelection(0, -1)
+			}
+		})
+}
+
+func (g *gui) showAccount(acc appstore.Account) {
+	if acc.Email != "" {
+		_ = g.account.status.SetText(fmt.Sprintf("Signed in as %s (%s)", acc.Name, acc.Email))
 	} else {
 		_ = g.account.status.SetText("Signed in.")
 	}
@@ -135,14 +139,16 @@ func (g *gui) logout() {
 		walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != walk.DlgCmdYes {
 		return
 	}
-	g.run([]string{"auth", "revoke"}, "Logging out.", true, func(result Result) {
-		if !result.OK() {
-			g.error("Log out failed", result.Error())
-			return
-		}
-		_ = g.account.status.SetText("Signed out.")
-		g.info("Logged out", "You are signed out.")
-	})
+	g.runTask("log out", "Logging out.",
+		func(ctx context.Context, b *backend) (any, error) { return nil, b.logout() },
+		func(_ any, err error) {
+			if err != nil {
+				g.error("Log out failed", errorText(err))
+				return
+			}
+			_ = g.account.status.SetText("Signed out.")
+			g.info("Logged out", "You are signed out.")
+		})
 }
 
 func (g *gui) browseExe() {
