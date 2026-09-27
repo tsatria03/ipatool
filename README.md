@@ -102,7 +102,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 
 - Every field, button and list can be read by screen readers such as NVDA, JAWS and Narrator.
 - Sign in with your Apple Account, including two-factor codes, check which account is signed in, and sign out.
-- Global search: search the whole App Store by name and platform, then send any result straight to the download page.
+- Global search: search the whole App Store by name and platform, see each app's price and size (in KB, MB or GB, as Apple lists it), then send any result straight to the download page.
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
 - See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
 - Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
@@ -137,7 +137,9 @@ The GUI uses ipatool's engine (`pkg/appstore` and the packages around it) direct
 - **Two-factor codes:** login asks for the code in the middle of the same session, like `ipatool auth login` in interactive mode.
 - **Tasks:** each action runs in the background with a fresh engine session (so a corrected passphrase takes effect immediately), and updates the window on the UI thread.
 - **My apps:** every owned-apps request makes the engine download the whole purchase history (about 12 seconds) and then cut out one page. The GUI therefore fetches the whole list once per session (`backend.ownedAppsAll`), keeps it in memory, and searches, filters and pages through it locally (`myapps.go`). The first load starts when focus first enters the page's controls; Load fetches a fresh list.
-- **Change to ipatool's own code:** to fetch everything in one request, this fork raises `MaxOwnedAppsLimit` in `pkg/appstore/appstore_owned_apps.go` from 100 to 100000 (the related tests in `pkg/appstore` and `cmd` use the constant). The command line tool's `list-purchases --max-results` accepts the larger value too. Keep this in mind when merging upstream changes to that file.
+- **Changes to ipatool's own code:** keep these in mind when merging upstream changes to those files.
+  - To fetch everything in one request, this fork raises `MaxOwnedAppsLimit` in `pkg/appstore/appstore_owned_apps.go` from 100 to 100000 (the related tests in `pkg/appstore` and `cmd` use the constant). The command line tool's `list-purchases --max-results` accepts the larger value too.
+  - `appstore.App` in `pkg/appstore/app.go` has a `FileSizeBytes` field, which keeps the size Apple lists in search and lookup results, for Global search's Size column. The command line tool's output is unchanged, because it lists its fields explicitly.
 - **Progress and cancelling:** downloads report progress through a `progressbar` that isn't drawn, read once a second for the status bar and the Result field. Escape cancels the task's context, which stops a download; a cancelled task's result is discarded.
 
 After merging upstream changes, build the GUI and run `go test .` in the `gui` folder, since changes in `pkg/appstore` or `cmd` can affect it.
