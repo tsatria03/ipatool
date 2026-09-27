@@ -65,7 +65,7 @@ func (g *gui) purchasesTab() TabPage {
 					Accessibility: accessible("Sort &by:"), OnCurrentIndexChanged: g.myAppsViewChanged},
 			}},
 			Label{Text: "Apps you o&wn:"},
-			TableView{AssignTo: &p.table, Model: p.model, Columns: appColumns(),
+			TableView{AssignTo: &p.table, Model: p.model, Columns: appColumns(p.model),
 				OnItemActivated: func() { g.sendToDownload(p.table, p.model, g.purchaseFilter()) }},
 			g.listButtons(&p.table, p.model, g.purchaseFilter, &p.download, &p.copy),
 		},

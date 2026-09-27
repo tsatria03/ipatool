@@ -433,6 +433,7 @@ func fromStoreApps(apps []appstore.App) []App {
 	for _, a := range apps {
 		app := App{ID: a.ID, BundleID: a.BundleID, Name: a.Name, Version: a.Version, Price: a.Price,
 			PurchaseDate: a.PurchaseDate}
+		app.Size, _ = strconv.ParseInt(a.FileSizeBytes, 10, 64) // blank or odd values stay 0
 		for _, p := range a.Platforms {
 			app.Platforms = append(app.Platforms, string(p))
 		}

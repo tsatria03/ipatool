@@ -21,55 +21,81 @@ type searchPage struct {
 }
 
 // appModel feeds a list of apps to a TableView (a native Windows list view).
-// showPrice is off for My apps: the purchase history has no prices, so the
-// column is left blank there instead of claiming every app is free.
+// store is on for Global search, whose results come with prices and sizes. The
+// purchase history (My apps) has neither: its Price column is left blank
+// instead of claiming every app is free, and it has no Size column.
 type appModel struct {
 	walk.TableModelBase
-	apps      []App
-	showPrice bool
+	apps  []App
+	store bool
+}
+
+type appColumn struct {
+	title string
+	width int
+	value func(m *appModel, app App) string
+}
+
+var (
+	nameColumn    = appColumn{"Name", 220, func(_ *appModel, a App) string { return a.Name }}
+	bundleColumn  = appColumn{"Bundle ID", 210, func(_ *appModel, a App) string { return a.BundleID }}
+	versionColumn = appColumn{"Version", 80, func(_ *appModel, a App) string { return a.Version }}
+	priceColumn   = appColumn{"Price", 60, func(m *appModel, a App) string {
+		switch {
+		case !m.store:
+			return ""
+		case a.Price == 0:
+			return "Free"
+		}
+		return strconv.FormatFloat(a.Price, 'f', 2, 64)
+	}}
+	sizeColumn      = appColumn{"Size", 70, func(_ *appModel, a App) string { return formatSize(a.Size) }}
+	platformsColumn = appColumn{"Platforms", 130, func(_ *appModel, a App) string { return strings.Join(a.Platforms, ", ") }}
+	idColumn        = appColumn{"App ID", 100, func(_ *appModel, a App) string { return strconv.FormatInt(a.ID, 10) }}
+)
+
+// columns lists the model's columns in order; Value and the TableView both use it.
+func (m *appModel) columns() []appColumn {
+	if m.store {
+		return []appColumn{nameColumn, bundleColumn, versionColumn, priceColumn, sizeColumn, platformsColumn, idColumn}
+	}
+	return []appColumn{nameColumn, bundleColumn, versionColumn, priceColumn, platformsColumn, idColumn}
 }
 
 func (m *appModel) RowCount() int { return len(m.apps) }
 
 func (m *appModel) Value(row, col int) interface{} {
-	app := m.apps[row]
-	switch col {
-	case 0:
-		return app.Name
-	case 1:
-		return app.BundleID
-	case 2:
-		return app.Version
-	case 3:
-		if !m.showPrice {
-			return ""
-		}
-		if app.Price == 0 {
-			return "Free"
-		}
-		return strconv.FormatFloat(app.Price, 'f', 2, 64)
-	case 4:
-		return strings.Join(app.Platforms, ", ")
-	case 5:
-		return strconv.FormatInt(app.ID, 10)
+	if cols := m.columns(); col < len(cols) {
+		return cols[col].value(m, m.apps[row])
 	}
 	return ""
 }
 
-func appColumns() []TableViewColumn {
-	return []TableViewColumn{
-		{Title: "Name", Width: 220},
-		{Title: "Bundle ID", Width: 210},
-		{Title: "Version", Width: 80},
-		{Title: "Price", Width: 60},
-		{Title: "Platforms", Width: 130},
-		{Title: "App ID", Width: 100},
+func appColumns(m *appModel) []TableViewColumn {
+	var out []TableViewColumn
+	for _, c := range m.columns() {
+		out = append(out, TableViewColumn{Title: c.title, Width: c.width})
 	}
+	return out
+}
+
+// formatSize shows a size in bytes the way the App Store does, in decimal units:
+// "850 KB", "393 MB", "1.2 GB". Unknown sizes (0) are blank.
+func formatSize(bytes int64) string {
+	switch {
+	case bytes <= 0:
+		return ""
+	case bytes < 1e6:
+		return fmt.Sprintf("%d KB", max(1, (bytes+500)/1e3))
+	case bytes < 1e9:
+		return fmt.Sprintf("%d MB", (bytes+5e5)/1e6)
+	}
+	return fmt.Sprintf("%.1f GB", float64(bytes)/1e9)
 }
 
 func (g *gui) searchTab() TabPage {
 	s := &g.search
-	s.model = &appModel{showPrice: true}
+	s.model = &appModel{store: true}
 
 	return TabPage{
 		Title:  "Global search",
@@ -91,7 +117,7 @@ func (g *gui) searchTab() TabPage {
 				PushButton{Text: "&Search", OnClicked: g.runSearch},
 			}},
 			Label{Text: "Global search resul&ts:"},
-			TableView{AssignTo: &s.table, Model: s.model, Columns: appColumns(),
+			TableView{AssignTo: &s.table, Model: s.model, Columns: appColumns(s.model),
 				OnItemActivated: func() { g.sendToDownload(s.table, s.model, s.platform.Text()) }},
 			g.listButtons(&s.table, s.model, func() string { return s.platform.Text() }, nil, nil),
 		},

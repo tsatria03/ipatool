@@ -109,6 +109,46 @@ func TestSortApps(t *testing.T) {
 	}
 }
 
+func TestFormatSize(t *testing.T) {
+	tests := map[int64]string{
+		0:             "",
+		300:           "1 KB",
+		850_000:       "850 KB",
+		999_400:       "999 KB",
+		1_000_000:     "1 MB",
+		392695808:     "393 MB",
+		999_400_000:   "999 MB",
+		1_234_000_000: "1.2 GB",
+		4_000_000_000: "4.0 GB",
+	}
+	for bytes, want := range tests {
+		if got := formatSize(bytes); got != want {
+			t.Errorf("formatSize(%d) = %q, want %q", bytes, got, want)
+		}
+	}
+}
+
+func TestAppColumns(t *testing.T) {
+	app := App{Name: "YouTube", Price: 0, Size: 392695808}
+	store := &appModel{store: true, apps: []App{app}}
+	owned := &appModel{apps: []App{app}}
+	if got := len(appColumns(store)); got != 7 {
+		t.Errorf("Global search has %d columns, want 7", got)
+	}
+	if got := len(appColumns(owned)); got != 6 {
+		t.Errorf("My apps has %d columns, want 6 (no Size)", got)
+	}
+	if got := store.Value(0, 3); got != "Free" {
+		t.Errorf("Global search price = %q, want Free", got)
+	}
+	if got := store.Value(0, 4); got != "393 MB" {
+		t.Errorf("Global search size = %q, want 393 MB", got)
+	}
+	if got := owned.Value(0, 3); got != "" {
+		t.Errorf("My apps price = %q, want blank", got)
+	}
+}
+
 func TestPageInfoText(t *testing.T) {
 	if got := pageInfoText(2, 143, 3554, 3554, false); got != "Page 2 of 143, 3554 apps" {
 		t.Errorf("got %q", got)
