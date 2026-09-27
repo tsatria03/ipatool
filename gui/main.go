@@ -15,11 +15,11 @@ import (
 	"github.com/tailscale/win"
 )
 
-var pageTitles = []string{"Account", "Search", "Download", "My apps", "Log"}
+var pageTitles = []string{"Account", "Global search", "Download", "My apps", "Log"}
 
 const shortcutsHelp = `Keyboard shortcuts
 
-Ctrl+1 to Ctrl+5: go to the Account, Search, Download, My apps or Log page.
+Ctrl+1 to Ctrl+5: go to the Account, Global search, Download, My apps or Log page.
 Ctrl+Tab / Ctrl+Shift+Tab: next / previous page.
 Switching pages puts you on the page tabs; Left and Right arrows also switch pages there.
 Tab / Shift+Tab: move between fields and buttons (Tab from the page tabs enters the page).
@@ -27,8 +27,9 @@ Alt + underlined letter: jump to a field or press a button.
 Enter in the search box: search.
 Enter in the Apple ID password box: log in.
 Enter on an app in a results list: send it to the Download page.
-My apps: your apps load the first time you move into the page. Search my apps (Alt+S)
-  and the platform filter (Alt+T) work instantly; Enter in either moves to the list.
+My apps: your apps load the first time you move into the page. Search my apps (Alt+S),
+  the platform filter (Alt+T) and Sort by (Alt+B) work instantly; Enter in any of them
+  moves to the list.
   Load (Alt+L) gets a fresh list from Apple.
 Escape: cancel the task that is running.
 F5: check which account you are signed in with.
@@ -74,7 +75,7 @@ func main() {
 	}
 	// walk always creates a toolbar; this app has none, and an empty one would be a stray Tab stop.
 	g.mw.ToolBar().SetVisible(false)
-	fixTableView(g.search.table, "Search results", "Alt+T")
+	fixTableView(g.search.table, "Global search results", "Alt+T")
 	fixTableView(g.purchases.table, "Apps you own", "Alt+W")
 	assignControlIDs(g.mw.Handle())
 	g.setupTabs()

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -25,6 +27,57 @@ func filterApps(all []App, platform, query string) []App {
 		out = append(out, app)
 	}
 	return out
+}
+
+// sortChoices are the "Sort by" options, in the order they appear; index 0 is
+// the default (the order the engine returns).
+var sortChoices = []string{
+	"Newest purchase first",
+	"Oldest purchase first",
+	"Name, A to Z",
+	"Name, Z to A",
+	"Bundle ID, A to Z",
+	"Bundle ID, Z to A",
+	"Newest to the App Store first",
+	"Oldest to the App Store first",
+}
+
+// sortApps sorts apps in place by the given sortChoices index. App IDs grow as
+// apps are added to the App Store, so sorting by ID approximates App Store age.
+// Ties fall back to bundle ID and then ID, so the order never shuffles.
+func sortApps(apps []App, choice int) {
+	lower := strings.ToLower
+	tie := func(a, b App) int {
+		if c := strings.Compare(lower(a.BundleID), lower(b.BundleID)); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.ID, b.ID)
+	}
+	var compare func(a, b App) int
+	switch choice {
+	case 1:
+		compare = func(a, b App) int { return a.PurchaseDate.Compare(b.PurchaseDate) }
+	case 2:
+		compare = func(a, b App) int { return strings.Compare(lower(a.Name), lower(b.Name)) }
+	case 3:
+		compare = func(a, b App) int { return strings.Compare(lower(b.Name), lower(a.Name)) }
+	case 4:
+		compare = func(a, b App) int { return strings.Compare(lower(a.BundleID), lower(b.BundleID)) }
+	case 5:
+		compare = func(a, b App) int { return strings.Compare(lower(b.BundleID), lower(a.BundleID)) }
+	case 6:
+		compare = func(a, b App) int { return cmp.Compare(b.ID, a.ID) }
+	case 7:
+		compare = func(a, b App) int { return cmp.Compare(a.ID, b.ID) }
+	default:
+		compare = func(a, b App) int { return b.PurchaseDate.Compare(a.PurchaseDate) }
+	}
+	slices.SortStableFunc(apps, func(a, b App) int {
+		if c := compare(a, b); c != 0 {
+			return c
+		}
+		return tie(a, b)
+	})
 }
 
 // pageOf returns one page of apps, with the page number clamped to the valid

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 var platforms = []string{"iphone", "ipad", "appletv", "visionos", "macos"}
@@ -42,12 +43,14 @@ func saveSettings(s Settings) {
 	}
 }
 
-// App is one app from a search or the owned-apps list.
+// App is one app from a search or the owned-apps list. Search results have a
+// price; the purchase history has a purchase date but no price.
 type App struct {
-	ID        int64
-	BundleID  string
-	Name      string
-	Version   string
-	Price     float64
-	Platforms []string
+	ID           int64
+	BundleID     string
+	Name         string
+	Version      string
+	Price        float64
+	PurchaseDate time.Time
+	Platforms    []string
 }

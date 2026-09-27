@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"testing"
+	"time"
 )
 
 func sampleApps(n int) []App {
@@ -67,6 +69,43 @@ func TestPageOf(t *testing.T) {
 	}
 	if got, current, pages := pageOf(nil, 1, 25); len(got) != 0 || current != 1 || pages != 1 {
 		t.Errorf("empty list: %d apps, page %d of %d; want 0, 1 of 1", len(got), current, pages)
+	}
+}
+
+func TestSortApps(t *testing.T) {
+	day := func(d int) time.Time { return time.Date(2024, 1, d, 0, 0, 0, 0, time.UTC) }
+	base := []App{
+		{ID: 300, Name: "banana", BundleID: "com.b.app", PurchaseDate: day(2)},
+		{ID: 100, Name: "Apple", BundleID: "org.a.app", PurchaseDate: day(3)},
+		{ID: 200, Name: "cherry", BundleID: "com.a.app", PurchaseDate: day(1)},
+	}
+	want := map[int][]string{ // first letters of names, in order
+		0: {"Apple", "banana", "cherry"}, // newest purchase first
+		1: {"cherry", "banana", "Apple"}, // oldest purchase first
+		2: {"Apple", "banana", "cherry"}, // name A-Z, ignoring capitals
+		3: {"cherry", "banana", "Apple"}, // name Z-A
+		4: {"cherry", "banana", "Apple"}, // bundle ID A-Z: com.a, com.b, org.a
+		5: {"Apple", "banana", "cherry"}, // bundle ID Z-A
+		6: {"banana", "cherry", "Apple"}, // newest to the App Store: ID 300, 200, 100
+		7: {"Apple", "cherry", "banana"}, // oldest to the App Store
+	}
+	if len(want) != len(sortChoices) {
+		t.Fatalf("test covers %d choices, sortChoices has %d", len(want), len(sortChoices))
+	}
+	for choice, names := range want {
+		apps := slices.Clone(base)
+		sortApps(apps, choice)
+		for i, app := range apps {
+			if app.Name != names[i] {
+				t.Errorf("%s: position %d is %q, want %q", sortChoices[choice], i+1, app.Name, names[i])
+			}
+		}
+	}
+	// Ties (same purchase date) fall back to bundle ID, so the order is fixed.
+	tied := []App{{ID: 1, BundleID: "z"}, {ID: 2, BundleID: "a"}}
+	sortApps(tied, 0)
+	if tied[0].BundleID != "a" {
+		t.Errorf("tie order: got %q first, want %q", tied[0].BundleID, "a")
 	}
 }
 

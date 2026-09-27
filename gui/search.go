@@ -21,9 +21,12 @@ type searchPage struct {
 }
 
 // appModel feeds a list of apps to a TableView (a native Windows list view).
+// showPrice is off for My apps: the purchase history has no prices, so the
+// column is left blank there instead of claiming every app is free.
 type appModel struct {
 	walk.TableModelBase
-	apps []App
+	apps      []App
+	showPrice bool
 }
 
 func (m *appModel) RowCount() int { return len(m.apps) }
@@ -38,6 +41,9 @@ func (m *appModel) Value(row, col int) interface{} {
 	case 2:
 		return app.Version
 	case 3:
+		if !m.showPrice {
+			return ""
+		}
 		if app.Price == 0 {
 			return "Free"
 		}
@@ -63,10 +69,10 @@ func appColumns() []TableViewColumn {
 
 func (g *gui) searchTab() TabPage {
 	s := &g.search
-	s.model = &appModel{}
+	s.model = &appModel{showPrice: true}
 
 	return TabPage{
-		Title:  "Search",
+		Title:  "Global search",
 		Layout: VBox{},
 		Children: []Widget{
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
@@ -84,7 +90,7 @@ func (g *gui) searchTab() TabPage {
 					Accessibility: accessible("&Number of results:")},
 				PushButton{Text: "&Search", OnClicked: g.runSearch},
 			}},
-			Label{Text: "Search resul&ts:"},
+			Label{Text: "Global search resul&ts:"},
 			TableView{AssignTo: &s.table, Model: s.model, Columns: appColumns(),
 				OnItemActivated: func() { g.sendToDownload(s.table, s.model, s.platform.Text()) }},
 			g.listButtons(&s.table, s.model, func() string { return s.platform.Text() }, nil, nil),

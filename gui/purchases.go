@@ -19,7 +19,7 @@ const (
 // the list loads by itself.
 type purchasesPage struct {
 	load, previous, next, download, copy *walk.PushButton
-	filter                               *walk.ComboBox
+	filter, sort                         *walk.ComboBox
 	search, pageInfo                     *walk.LineEdit
 	table                                *walk.TableView
 	model                                *appModel
@@ -33,7 +33,7 @@ type purchasesPage struct {
 
 func (g *gui) purchasesTab() TabPage {
 	p := &g.purchases
-	p.model = &appModel{}
+	p.model = &appModel{} // no prices: the purchase history doesn't include them
 	p.page = 1
 
 	return TabPage{
@@ -46,7 +46,7 @@ func (g *gui) purchasesTab() TabPage {
 				PushButton{AssignTo: &p.next, Text: "&Next page", OnClicked: func() { g.turnMyAppsPage(+1) }},
 				Label{Text: "Pla&tform filter:"},
 				ComboBox{AssignTo: &p.filter, Model: append([]string{allPlatforms}, platforms...), CurrentIndex: 0,
-					Accessibility: accessible("Pla&tform filter:"), OnCurrentIndexChanged: g.myAppsFilterChanged},
+					Accessibility: accessible("Pla&tform filter:"), OnCurrentIndexChanged: g.myAppsViewChanged},
 				Label{Text: "Pa&ge:"},
 				LineEdit{AssignTo: &p.pageInfo, ReadOnly: true, Text: "Not loaded", Accessibility: accessible("Pa&ge:")},
 			}},
@@ -58,6 +58,9 @@ func (g *gui) purchasesTab() TabPage {
 							g.searchMyApps()
 						}
 					}},
+				Label{Text: "Sort &by:"},
+				ComboBox{AssignTo: &p.sort, Model: sortChoices, CurrentIndex: 0,
+					Accessibility: accessible("Sort &by:"), OnCurrentIndexChanged: g.myAppsViewChanged},
 			}},
 			Label{Text: "Apps you o&wn:"},
 			TableView{AssignTo: &p.table, Model: p.model, Columns: appColumns(),
@@ -72,7 +75,7 @@ func (g *gui) purchasesTab() TabPage {
 // switching to another program never start it.
 func (g *gui) setupMyApps() {
 	p := &g.purchases
-	widgets := []walk.Widget{p.load, p.previous, p.next, p.filter, p.pageInfo, p.search, p.table, p.download, p.copy}
+	widgets := []walk.Widget{p.load, p.previous, p.next, p.filter, p.pageInfo, p.search, p.sort, p.table, p.download, p.copy}
 	for _, w := range widgets {
 		w := w
 		w.FocusedChanged().Attach(func() {
@@ -132,12 +135,13 @@ func (g *gui) fetchMyApps(auto bool, then func()) {
 	}
 }
 
-// showMyApps fills the list with the current page of the filtered, searched
-// apps and updates the Page field. focusList moves focus to the first app.
+// showMyApps fills the list with the current page of the filtered, searched and
+// sorted apps and updates the Page field. focusList moves focus to the first app.
 func (g *gui) showMyApps(focusList bool) {
 	p := &g.purchases
 	query := p.search.Text()
-	view := filterApps(p.all, g.purchaseFilter(), query)
+	view := filterApps(p.all, g.purchaseFilter(), query) // a new slice, safe to sort
+	sortApps(view, p.sort.CurrentIndex())
 	apps, current, pages := pageOf(view, p.page, appsPerPage)
 	p.page = current
 	p.model.apps = apps
@@ -163,9 +167,9 @@ func (g *gui) turnMyAppsPage(step int) {
 	g.setStatus(p.pageInfo.Text())
 }
 
-// myAppsFilterChanged applies the platform filter instantly; focus stays on the
-// filter so arrowing through the choices keeps working.
-func (g *gui) myAppsFilterChanged() {
+// myAppsViewChanged applies a new platform filter or sort order instantly; focus
+// stays on the combo box so arrowing through the choices keeps working.
+func (g *gui) myAppsViewChanged() {
 	p := &g.purchases
 	if !p.loaded {
 		return // the first load uses whatever is selected
@@ -175,8 +179,8 @@ func (g *gui) myAppsFilterChanged() {
 	g.setStatus(p.pageInfo.Text())
 }
 
-// myAppsFilterEnter is Enter in the platform filter: go to the list.
-func (g *gui) myAppsFilterEnter() {
+// myAppsComboEnter is Enter in the platform filter or Sort by: go to the list.
+func (g *gui) myAppsComboEnter() {
 	p := &g.purchases
 	if !p.loaded {
 		g.fetchMyApps(false, nil)

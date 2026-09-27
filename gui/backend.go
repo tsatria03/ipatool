@@ -431,7 +431,8 @@ func (b *backend) ownedAppsAll() ([]App, error) {
 func fromStoreApps(apps []appstore.App) []App {
 	out := make([]App, 0, len(apps))
 	for _, a := range apps {
-		app := App{ID: a.ID, BundleID: a.BundleID, Name: a.Name, Version: a.Version, Price: a.Price}
+		app := App{ID: a.ID, BundleID: a.BundleID, Name: a.Name, Version: a.Version, Price: a.Price,
+			PurchaseDate: a.PurchaseDate}
 		for _, p := range a.Platforms {
 			app.Platforms = append(app.Platforms, string(p))
 		}
