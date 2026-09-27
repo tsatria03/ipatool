@@ -105,7 +105,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Search the App Store by name and platform, then send any result straight to the download page.
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
 - See download progress as a percentage, and cancel a download at any time.
-- Browse the apps your account owns, 25 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID, filtering by platform and turning pages are instant.
+- Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID, filtering by platform and turning pages are instant.
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
 - Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts.
 - Switching pages keeps you on the page tabs, and moving between tabs announces just the tab's name.

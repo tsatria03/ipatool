@@ -10,7 +10,7 @@ import (
 
 const (
 	allPlatforms = "all platforms"
-	appsPerPage  = 25
+	appsPerPage  = 100
 )
 
 // The My apps page fetches the whole purchase history once per session (about

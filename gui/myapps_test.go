@@ -58,6 +58,10 @@ func TestPageOf(t *testing.T) {
 				tt.page, len(got), current, pages, tt.wantLen, tt.wantCurrent, tt.wantPages)
 		}
 	}
+	// My apps' own page size: 3554 apps -> 36 pages of 100, the last with 54.
+	if got, current, pages := pageOf(apps, 36, appsPerPage); len(got) != 54 || current != 36 || pages != 36 {
+		t.Errorf("appsPerPage %d, last page: %d apps, page %d of %d; want 54, 36 of 36", appsPerPage, len(got), current, pages)
+	}
 	if got, _, _ := pageOf(apps, 2, 25); got[0].ID != 26 {
 		t.Errorf("page 2 starts with app %d, want 26", got[0].ID)
 	}
