@@ -61,23 +61,21 @@ func (g *gui) downloadTab() TabPage {
 	}
 }
 
-// appArgs returns -i for numeric app IDs and -b for bundle IDs.
-func (g *gui) appArgs() ([]string, bool) {
+// appTarget returns the app to work on: a bundle ID or a numeric app ID.
+func (g *gui) appTarget() (string, bool) {
 	target := strings.TrimSpace(g.download.app.Text())
 	if target == "" {
 		g.error("Missing app", "Enter a bundle ID (like com.example.app) or a numeric app ID.")
 		_ = g.download.app.SetFocus()
-		return nil, false
+		return "", false
 	}
-	if strings.IndexFunc(target, func(r rune) bool { return r < '0' || r > '9' }) == -1 {
-		return []string{"-i", target}, true
-	}
-	return []string{"-b", target}, true
+	return target, true
 }
 
 func (g *gui) startDownload() {
 	d := &g.download
-	if _, ok := g.appArgs(); !ok {
+	target, ok := g.appTarget()
+	if !ok {
 		return
 	}
 	folder := strings.TrimSpace(d.output.Text())
@@ -88,7 +86,7 @@ func (g *gui) startDownload() {
 	g.persist()
 
 	req := downloadRequest{
-		target:     strings.TrimSpace(d.app.Text()),
+		target:     target,
 		platform:   d.platform.Text(),
 		versionID:  strings.TrimSpace(d.version.Text()),
 		output:     folder,
@@ -155,11 +153,11 @@ func (g *gui) openOutputFolder() {
 // ----- choosing an older version -----------------------------------------------
 
 func (g *gui) chooseVersion() {
-	app, ok := g.appArgs()
+	target, ok := g.appTarget()
 	if !ok {
 		return
 	}
-	appArgs := append(app, "--platform", g.download.platform.Text())
+	platform := g.download.platform.Text()
 
 	var dlg *walk.Dialog
 	var list *walk.ListBox
@@ -182,30 +180,46 @@ func (g *gui) chooseVersion() {
 		}
 	}
 
-	// lookup fetches version numbers one at a time, then returns focus to the list.
-	var lookup func(pending []int)
-	lookup = func(pending []int) {
-		if closed {
-			return
-		}
+	// lookup fetches the version numbers of the given list positions in one engine
+	// task, filling in each line as it arrives, then returns focus to the list.
+	lookup := func(pending []int) {
 		if len(pending) == 0 {
-			_ = list.SetFocus()
 			return
 		}
-		index := pending[0]
-		args := append(append([]string{"get-version-metadata"}, appArgs...), "--external-version-id", ids[index])
-		g.run(args, "Looking up version "+ids[index]+".", true, func(result Result) {
-			if closed {
-				return
-			}
-			label := "lookup failed"
-			if result.OK() {
-				label = result.Str("displayVersion")
-			}
-			items[index] = fmt.Sprintf("Version %s, ID %s", label, ids[index])
-			setItems()
-			lookup(pending[1:])
-		})
+		indexOf := map[string]int{}
+		wanted := make([]string, len(pending))
+		for n, i := range pending {
+			wanted[n] = ids[i]
+			indexOf[ids[i]] = i
+		}
+		done := 0
+		name := fmt.Sprintf("look up %d version number(s) of %s (%s)", len(wanted), target, platform)
+		g.runTask(name, "Looking up versions.",
+			func(ctx context.Context, b *backend) (any, error) {
+				return nil, b.versionDetails(ctx, target, platform, wanted, func(id, label string) {
+					g.app.Synchronize(func() {
+						done++
+						if closed {
+							return
+						}
+						items[indexOf[id]] = fmt.Sprintf("%s, ID %s", label, id)
+						setItems()
+					})
+				})
+			},
+			func(_ any, err error) {
+				if closed {
+					return
+				}
+				if err != nil {
+					g.error("Could not look up versions", errorText(err))
+				}
+				_ = list.SetFocus()
+			})
+		if g.busy {
+			total := len(wanted)
+			g.busyProgress = func() string { return fmt.Sprintf("%d of %d", done, total) }
+		}
 	}
 	lookupNext := func() {
 		var pending []int
@@ -254,26 +268,28 @@ func (g *gui) chooseVersion() {
 	assignControlIDs(dlg.Handle())
 	_ = list.SetFocus()
 
-	g.run(append([]string{"list-versions"}, appArgs...), "Loading version list.", true, func(result Result) {
-		if closed {
-			return
-		}
-		if !result.OK() {
-			g.error("Could not list versions", result.Error())
-			dlg.Cancel()
-			return
-		}
-		ids = result.Strings("externalVersionIdentifiers")
-		slices.Reverse(ids)
-		items = slices.Clone(ids)
-		if len(items) == 0 {
-			_ = list.SetModel([]string{"No versions found."})
-		} else {
-			_ = list.SetModel(slices.Clone(items))
-			_ = list.SetCurrentIndex(0)
-		}
-		_ = list.SetFocus()
-	})
+	g.runTask(fmt.Sprintf("list versions of %s (%s)", target, platform), "Loading version list.",
+		func(ctx context.Context, b *backend) (any, error) { return b.listVersions(target, platform) },
+		func(result any, err error) {
+			if closed {
+				return
+			}
+			if err != nil {
+				g.error("Could not list versions", errorText(err))
+				dlg.Cancel()
+				return
+			}
+			ids = slices.Clone(result.([]string))
+			slices.Reverse(ids)
+			items = slices.Clone(ids)
+			if len(items) == 0 {
+				_ = list.SetModel([]string{"No versions found."})
+			} else {
+				_ = list.SetModel(slices.Clone(items))
+				_ = list.SetCurrentIndex(0)
+			}
+			_ = list.SetFocus()
+		})
 
 	dlg.Run()
 	closed = true

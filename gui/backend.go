@@ -323,6 +323,78 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 	}
 }
 
+// resolveApp turns a bundle ID or numeric app ID into an app, looking bundle IDs
+// up in the account's store as cmd/ does.
+func (b *backend) resolveApp(acc appstore.Account, target string, platform appstore.Platform) (appstore.App, error) {
+	if id, err := strconv.ParseInt(target, 10, 64); err == nil {
+		return appstore.App{ID: id}, nil
+	}
+	lookup, err := b.store.Lookup(appstore.LookupInput{Account: acc, BundleID: target, Platform: platform})
+	if err != nil {
+		return appstore.App{}, err
+	}
+	return lookup.App, nil
+}
+
+// listVersions is `ipatool list-versions`: the app's external version IDs, oldest first.
+func (b *backend) listVersions(target, platform string) ([]string, error) {
+	p, err := appstore.ParsePlatform(platform)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	err = b.withAccount(func(acc appstore.Account) error {
+		app, err := b.resolveApp(acc, target, p)
+		if err != nil {
+			return err
+		}
+		out, err := b.store.ListVersions(appstore.ListVersionsInput{Account: acc, App: app, Platform: p})
+		if err != nil {
+			return err
+		}
+		ids = out.ExternalVersionIdentifiers
+		return nil
+	})
+	return ids, err
+}
+
+// versionDetails is `ipatool get-version-metadata` for several version IDs in one
+// session: the app is looked up once, and report is called after each ID with
+// its description (for example "Version 21.38.3, released September 20, 2026").
+// A failed lookup is reported as such and the rest continue; ctx stops the loop.
+func (b *backend) versionDetails(ctx context.Context, target, platform string, ids []string, report func(id, label string)) error {
+	p, err := appstore.ParsePlatform(platform)
+	if err != nil {
+		return err
+	}
+	return b.withAccount(func(acc appstore.Account) error {
+		app, err := b.resolveApp(acc, target, p)
+		if err != nil {
+			return err
+		}
+		for _, id := range ids {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			out, err := b.store.GetVersionMetadata(appstore.GetVersionMetadataInput{
+				Context: ctx, Account: acc, App: app, VersionID: id, Platform: p,
+			})
+			if errors.Is(err, appstore.ErrPasswordTokenExpired) {
+				return err // withAccount signs in again and starts over
+			}
+			label := "Version lookup failed"
+			if err == nil {
+				label = "Version " + out.DisplayVersion
+				if !out.ReleaseDate.IsZero() {
+					label += ", released " + out.ReleaseDate.Format("January 2, 2006")
+				}
+			}
+			report(id, label)
+		}
+		return nil
+	})
+}
+
 func fromStoreApps(apps []appstore.App) []App {
 	out := make([]App, 0, len(apps))
 	for _, a := range apps {
