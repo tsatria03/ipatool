@@ -27,6 +27,8 @@ Alt + underlined letter: jump to a field or press a button.
 Enter in the search box: search.
 Enter in the Apple ID password box: log in.
 Enter on an app in a results list: send it to the Download page.
+Letters in an app list: jump to the next app whose name starts with them; type
+  several letters quickly to match more of the name (current page only).
 Download (Alt+D on the Download page): starts the download and moves you to the
   Result field, which shows the progress.
 My apps: your apps load the first time you move into the page. Search my apps (Alt+S),
@@ -82,6 +84,13 @@ func main() {
 	g.mw.ToolBar().SetVisible(false)
 	fixTableView(g.search.table, "Global search results", "Alt+T")
 	fixTableView(g.purchases.table, "Apps you own", "Alt+W")
+	for _, list := range []struct {
+		tv    *walk.TableView
+		model *appModel
+	}{{g.search.table, g.search.model}, {g.purchases.table, g.purchases.model}} {
+		model := list.model
+		enableTypeAhead(list.tv, model.RowCount, func(row int) string { return model.apps[row].Name })
+	}
 	assignControlIDs(g.mw.Handle())
 	g.setupTabs()
 	g.setupMyApps()
