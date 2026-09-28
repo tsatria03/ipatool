@@ -897,7 +897,7 @@ var _ = Describe("AppStore (Download)", func() {
 			})
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(Equal(DownloadOutput{DestinationPath: requestedPath}))
+			Expect(out).To(Equal(DownloadOutput{DestinationPath: requestedPath, Version: "1.2.3"}))
 			Expect(decrypter.input).To(Equal(packageData))
 			Expect(os.ReadFile(requestedPath)).To(Equal(decryptedData))
 			Expect(requestedPath + macDPInfoSuffix).ToNot(BeAnExistingFile())

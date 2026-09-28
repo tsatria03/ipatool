@@ -33,6 +33,27 @@ type DownloadInput struct {
 type DownloadOutput struct {
 	DestinationPath string
 	Sinfs           []Sinf
+	// Name and Version are the app's store name and version from Apple's
+	// download answer ("" if Apple didn't send them). The accessible GUI uses
+	// them to name files like iTunes does ("Name Version.ipa").
+	Name    string
+	Version string
+}
+
+// itemNameAndVersion reads the store name and version from a download item's
+// metadata. Some older apps have no short version, only a build version.
+func itemNameAndVersion(item downloadItemResult) (name, version string) {
+	text := func(key string) string {
+		if v, ok := item.Metadata[key]; ok && v != nil {
+			return strings.TrimSpace(fmt.Sprint(v))
+		}
+		return ""
+	}
+	version = text("bundleShortVersionString")
+	if version == "" {
+		version = text("bundleVersion")
+	}
+	return text("itemName"), version
 }
 
 func (t *appstore) Download(input DownloadInput) (DownloadOutput, error) {
@@ -106,8 +127,15 @@ func (t *appstore) Download(input DownloadInput) (DownloadOutput, error) {
 		return DownloadOutput{}, fmt.Errorf("failed to resolve destination path: %w", err)
 	}
 
+	name, storeVersion := itemNameAndVersion(item)
+
 	if packagePlatform == PlatformMacOS {
-		return t.downloadMacPackage(input.Context, item, destination, machineGUID, input.Progress)
+		out, err := t.downloadMacPackage(input.Context, item, destination, machineGUID, input.Progress)
+		if err == nil {
+			out.Name, out.Version = name, storeVersion
+		}
+
+		return out, err
 	}
 
 	tmpPath := fmt.Sprintf("%s.tmp", destination)
@@ -140,6 +168,8 @@ func (t *appstore) Download(input DownloadInput) (DownloadOutput, error) {
 	return DownloadOutput{
 		DestinationPath: destination,
 		Sinfs:           item.Sinfs,
+		Name:            name,
+		Version:         storeVersion,
 	}, nil
 }
 
