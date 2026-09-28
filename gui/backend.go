@@ -221,6 +221,7 @@ type downloadRequest struct {
 type downloadResult struct {
 	path      string
 	purchased bool
+	renameErr error // the file couldn't be given its iTunes-style name (it keeps ipatool's)
 }
 
 // download is `ipatool download`, following cmd/download.go: up to 3 attempts,
@@ -235,6 +236,7 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 	var lastErr error
 	var app appstore.App // kept outside the attempt so its price can be checked on failure
 	priceKnown := false  // app came from the lookup service, which includes the price
+	var renameErr error  // renaming to the iTunes-style name failed
 	purchaseRequired, purchased := false, false
 	for attempt := 1; ; attempt++ {
 		path, err := func() (string, error) {
@@ -286,10 +288,16 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 					return "", err
 				}
 			}
-			return out.DestinationPath, nil
+			// Last, name the finished file like iTunes ("Dice Only 1.9.ipa"). If
+			// that fails, the download is still fine under ipatool's name.
+			path, err := renameLikeITunes(out.DestinationPath, out.Name, out.Version)
+			if err != nil {
+				renameErr = err
+			}
+			return path, nil
 		}()
 		if err == nil {
-			return downloadResult{path: path, purchased: purchased}, nil
+			return downloadResult{path: path, purchased: purchased, renameErr: renameErr}, nil
 		}
 		// ipatool can only get licenses for free apps, so a paid app the account
 		// hasn't bought can't be downloaded; say so instead of retrying.

@@ -122,6 +122,10 @@ func (g *gui) startDownload() {
 			if r.purchased {
 				extra = " A free license was added to your account."
 			}
+			if r.renameErr != nil {
+				g.log("rename failed: " + r.renameErr.Error())
+				extra += " It couldn't be renamed to the app's name; close any program using a file with that name and download again."
+			}
 			_ = d.result.SetText(fmt.Sprintf("Saved to %s.%s", r.path, extra))
 			g.info("Download finished", d.result.Text())
 		})
