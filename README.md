@@ -1,17 +1,3 @@
-<p align="center">
-  <a href="https://GitHub.com/majd/ipatool/releases/"><img src="https://img.shields.io/github/release/majd/ipatool.svg?label=Release" alt="Release"></a>
-  <a href="https://github.com/majd/ipatool/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"></a>
-  <a href="https://github.com/sponsors/majd"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink.svg" alt="Sponsor"></a>
-</p>
-
-<p align="center">
-  <code>ipatool</code> is a command line tool that allows you to search for iOS, iPadOS, tvOS, visionOS, and macOS apps on the <a href="https://apps.apple.com">App Store</a>, and download <code>.ipa</code> or macOS <code>.pkg</code> app packages.
-</p>
-
-<p align="center">
-  <img src="./resources/demo.gif" alt="Demo">
-</p>
-
 ## About this fork
 
 This is an accessibility-focused fork of [ipatool](https://github.com/majd/ipatool) by Majd Alfhaily. The command line tool works exactly as upstream; this fork adds an accessible Windows interface that works with screen readers such as NVDA, JAWS and Narrator. See [Accessible GUI](#accessible-gui) for what it does and how it works.
@@ -110,6 +96,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - See which of your apps are still on the App Store and which have been removed, with the availability filter.
 - Copy all your apps to the clipboard as text, or export them to a JSON file, following the current filters, search and sort. See [The My apps page](#the-my-apps-page).
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
+- First-letter navigation in every list: type a letter to jump to the next app whose name starts with it, press it again for the next one, or type several letters quickly to match more of the name. In My apps it searches the page on screen.
 - Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts.
 - Switching pages keeps you on the page tabs, and moving between tabs announces just the tab's name.
 - Clear, plain-language messages when something goes wrong, such as a wrong passphrase or an expired sign-in.
@@ -242,6 +229,8 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `settings.go` | Saved settings and the app type |
 | `tabs.go` | Page switching and Ctrl+Tab |
 | `winfix.go` | Accessibility workarounds for walk |
+| `typeahead.go` | First-letter navigation for the app lists |
+| `typeahead_test.go` | Tests for the first-letter matching |
 | `run-gui.vbs` | Double-click launcher |
 
 ### Accessibility workarounds for walk
@@ -250,6 +239,7 @@ walk needed several fixes to work well with screen readers:
 
 - **Control IDs:** walk creates every control with ID 0. Containers look up the sender of a `WM_COMMAND` with `GetDlgItem`, which returns the first child with that ID, so most button clicks went to the wrong control. `assignControlIDs` gives every control in walk containers a unique ID.
 - **Labels:** walk nests each label's STATIC control inside a wrapper window, so screen readers can't associate labels with fields. Every field gets an explicit accessible name and keyboard shortcut through `declarative.Accessibility`. Alt-key mnemonics on labels still work through the dialog manager.
+- **First-letter navigation:** a TableView's list views are virtual (`LVS_OWNERDATA`): they ask for each row's text instead of storing it, so they can't search it. When a letter is typed, the list view asks its parent which row matches with `LVN_ODFINDITEM`, which walk doesn't answer, so letters did nothing. `enableTypeAhead` (`typeahead.go`) subclasses the TableView wrapper and answers with the next row whose first column starts with the typed text. The list view still handles the typing itself (quick letters form a prefix, a repeated letter moves on), so it behaves like any Windows list. Every TableView should get it; plain list boxes and combo boxes already do this natively.
 - **TableView:** a TableView is two SysListView32 controls, one for frozen columns and the real one. Both were Tab stops, and the frozen one forwards focus, which trapped Shift+Tab. `fixTableView` removes the frozen list from the Tab order and sets the real list's name and shortcut with MSAA dynamic annotation (`IAccPropServices`).
 - **Page changes:** after a page change, `TabWidget` moves focus into the new page if focus was anywhere inside it, including the tab strip. Moving focus back made screen readers announce "tab control" on every arrow key. `withoutPageAutofocus` clears `WS_TABSTOP` on the pages' controls during a page change, so walk finds nothing to focus. It covers arrow keys and clicks (by subclassing the TabWidget wrapper to intercept `TCN_SELCHANGE`), Ctrl+1 to Ctrl+5, and Ctrl+Tab (handled in a pre-translate handler that passes every other message to the main window's dialog-manager handling).
 - **Keyboard navigation in the main window:** Tab and Alt mnemonics require the main window to be registered as a pre-translate handler, which walk only does automatically for dialogs.
