@@ -90,6 +90,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Sign in with your Apple Account, including two-factor codes, check which account is signed in, and sign out.
 - Global search: search the whole App Store by name and platform, see each app's price and size (in KB, MB or GB, as Apple lists it), then send any result straight to the download page.
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
+- Downloads are named like iTunes 12.6.5.3 named them, with the app's name and version, such as `Dice Only 1.9.ipa`, instead of ipatool's `bundle.id_appID_version.ipa`. Characters Windows doesn't allow in file names are replaced (`Battle Prime: Modern War` becomes `Battle Prime - Modern War`), very long names are shortened, and downloading the same version again replaces the file.
 - See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
 - Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
 - Sort your apps by purchase date, name or bundle ID (A to Z or Z to A), or by how long they've been on the App Store.
@@ -192,6 +193,7 @@ The GUI uses ipatool's engine (`pkg/appstore` and the packages around it) direct
 - **Changes to ipatool's own code:** keep these in mind when merging upstream changes to those files.
   - To fetch everything in one request, this fork raises `MaxOwnedAppsLimit` in `pkg/appstore/appstore_owned_apps.go` from 100 to 100000 (the related tests in `pkg/appstore` and `cmd` use the constant). The command line tool's `list-purchases --max-results` accepts the larger value too.
   - `appstore.App` in `pkg/appstore/app.go` has a `FileSizeBytes` field, which keeps the size Apple lists in search and lookup results, for Global search's Size column. The command line tool's output is unchanged, because it lists its fields explicitly.
+  - `appstore.DownloadOutput` in `pkg/appstore/appstore_download.go` has `Name` and `Version`, the app's store name (`itemName`) and version from Apple's download answer (falling back to `bundleVersion` for older apps without `bundleShortVersionString`). The GUI renames finished downloads to `Name Version.ipa` with them (`gui/filenames.go`), after the license data is copied in, so resuming and licensing work as before. The command line tool's file names are unchanged.
   - `pkg/appstore/storefront.go` exports `CountryCode`, a wrapper around the private store front to country mapping, so My apps can check availability in the account's country.
 - **Availability check:** after the purchase history loads, `gui/availability.go` sends the owned app IDs to Apple's public lookup service (`itunes.apple.com/lookup`, 150 IDs per request, 4 requests at a time, no sign-in) for the account's country. Apps it doesn't return are marked unavailable. If any request fails, every app stays unknown, so a failed check never makes apps look unavailable.
 - **Progress and cancelling:** downloads report progress through a `progressbar` that isn't drawn, read once a second for the status bar and the Result field. Escape cancels the task's context, which stops a download; a cancelled task's result is discarded.
@@ -219,6 +221,8 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `account.go` | Account page and the two-factor code prompt |
 | `search.go` | Global search page and the app list model shared with My apps |
 | `download.go` | Download page and the Choose older version dialog |
+| `filenames.go` | iTunes-style file names for downloads, made safe for Windows |
+| `filenames_test.go` | Tests for the file names, shortening and replacing |
 | `purchases.go` | My apps page |
 | `myapps.go` | Local search, filters, sorting, paging, and the copy and JSON export formats for My apps |
 | `availability.go` | Checks which owned apps are still on the account's App Store |
