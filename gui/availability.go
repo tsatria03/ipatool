@@ -107,6 +107,7 @@ feed:
 			apps[i].Availability = availabilityAvailable
 			apps[i].Details = details
 			apps[i].Size = details.sizeBytes()
+			apps[i].Developer = details.Developer
 		} else {
 			apps[i].Availability = availabilityUnavailable
 		}

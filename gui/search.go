@@ -21,9 +21,9 @@ type searchPage struct {
 }
 
 // appModel feeds a list of apps to a TableView (a native Windows list view).
-// store is on for Global search, whose results come with prices and sizes. My
-// apps shows a short row instead (name, version, developer, purchase date and
-// size), since App info has everything else; screen readers read every column.
+// store is on for Global search, whose results come with prices. Both lists
+// keep their rows short (name, version, developer, then price or purchase date,
+// and size), since screen readers read every column and App info has the rest.
 type appModel struct {
 	walk.TableModelBase
 	apps  []App
@@ -38,7 +38,6 @@ type appColumn struct {
 
 var (
 	nameColumn    = appColumn{"Name", 220, func(_ *appModel, a App) string { return a.Name }}
-	bundleColumn  = appColumn{"Bundle ID", 210, func(_ *appModel, a App) string { return a.BundleID }}
 	versionColumn = appColumn{"Version", 80, func(_ *appModel, a App) string { return a.Version }}
 	priceColumn   = appColumn{"Price", 60, func(_ *appModel, a App) string {
 		if a.Price == 0 {
@@ -46,17 +45,10 @@ var (
 		}
 		return strconv.FormatFloat(a.Price, 'f', 2, 64)
 	}}
-	sizeColumn      = appColumn{"Size", 70, func(_ *appModel, a App) string { return formatSize(a.Size) }}
-	platformsColumn = appColumn{"Platforms", 130, func(_ *appModel, a App) string { return strings.Join(a.Platforms, ", ") }}
-	idColumn        = appColumn{"App ID", 100, func(_ *appModel, a App) string { return strconv.FormatInt(a.ID, 10) }}
-	// My apps only: the developer and size come from the availability check, so
+	sizeColumn = appColumn{"Size", 70, func(_ *appModel, a App) string { return formatSize(a.Size) }}
+	// In My apps, the developer and size come from the availability check, so
 	// they are blank for apps that left the App Store.
-	developerColumn = appColumn{"Developer", 180, func(_ *appModel, a App) string {
-		if a.Details == nil {
-			return ""
-		}
-		return a.Details.Developer
-	}}
+	developerColumn = appColumn{"Developer", 180, func(_ *appModel, a App) string { return a.Developer }}
 	purchasedColumn = appColumn{"Purchase date", 130, func(_ *appModel, a App) string {
 		if a.PurchaseDate.IsZero() {
 			return ""
@@ -68,7 +60,7 @@ var (
 // columns lists the model's columns in order; Value and the TableView both use it.
 func (m *appModel) columns() []appColumn {
 	if m.store {
-		return []appColumn{nameColumn, bundleColumn, versionColumn, priceColumn, sizeColumn, platformsColumn, idColumn}
+		return []appColumn{nameColumn, versionColumn, developerColumn, priceColumn, sizeColumn}
 	}
 	return []appColumn{nameColumn, versionColumn, developerColumn, purchasedColumn, sizeColumn}
 }

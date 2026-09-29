@@ -76,6 +76,9 @@ func TestCheckAvailability(t *testing.T) {
 	if d := apps[4].Details; d == nil || d.Developer != "Developer 5" || d.sizeBytes() != 5000 {
 		t.Errorf("app 5 details = %+v", d)
 	}
+	if apps[4].Developer != "Developer 5" || apps[4].Size != 5000 {
+		t.Errorf("app 5 list fields: developer %q, size %d", apps[4].Developer, apps[4].Size)
+	}
 	if apps[3].Details != nil {
 		t.Errorf("app 4 left the store but has details %+v", apps[3].Details)
 	}

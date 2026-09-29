@@ -44,7 +44,8 @@ func saveSettings(s Settings) {
 }
 
 // App is one app from a search or the owned-apps list. Search results have a
-// price and a size; the purchase history has a purchase date but neither.
+// price, size and developer; the purchase history has a purchase date, and gets
+// the size and developer from the availability check.
 type App struct {
 	ID           int64
 	BundleID     string
@@ -54,6 +55,7 @@ type App struct {
 	PurchaseDate time.Time
 	Platforms    []string
 	Size         int64         // bytes, as listed by Apple; 0 when unknown (apps that left the store)
+	Developer    string        // as listed by Apple; "" when unknown (apps that left the store)
 	Availability availability  // My apps only: still on the account's App Store?
 	Details      *storeDetails // what the App Store lists about the app; nil when not looked up
 }

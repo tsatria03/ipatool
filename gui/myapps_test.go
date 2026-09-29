@@ -131,30 +131,38 @@ func TestFormatSize(t *testing.T) {
 }
 
 func TestAppColumns(t *testing.T) {
-	app := App{Name: "YouTube", Price: 0, Size: 392695808}
-	store := &appModel{store: true, apps: []App{app}}
-	if got := len(appColumns(store)); got != 7 {
-		t.Errorf("Global search has %d columns, want 7", got)
+	titles := func(m *appModel) string {
+		var out []string
+		for _, c := range appColumns(m) {
+			out = append(out, c.Title)
+		}
+		return strings.Join(out, ", ")
 	}
-	if got := store.Value(0, 3); got != "Free" {
-		t.Errorf("Global search price = %q, want Free", got)
+
+	// Global search: Name, Version, Developer, Price, Size.
+	store := &appModel{store: true, apps: []App{
+		{Name: "YouTube", Version: "20.1", Developer: "Google", Price: 0, Size: 392695808},
+		{Name: "Paid", Price: 1.99},
+	}}
+	if got := titles(store); got != "Name, Version, Developer, Price, Size" {
+		t.Errorf("Global search columns = %s", got)
 	}
-	if got := store.Value(0, 4); got != "393 MB" {
-		t.Errorf("Global search size = %q, want 393 MB", got)
+	for col, want := range []string{"YouTube", "20.1", "Google", "Free", "393 MB"} {
+		if got := store.Value(0, col); got != want {
+			t.Errorf("Global search column %d = %q, want %q", col, got, want)
+		}
+	}
+	if got := store.Value(1, 3); got != "1.99" {
+		t.Errorf("Global search price = %q, want 1.99", got)
 	}
 
 	// My apps: Name, Version, Developer, Purchase date, Size.
 	bought := time.Date(2026, 9, 5, 12, 0, 0, 0, time.Local)
 	owned := &appModel{apps: []App{
-		{Name: "Game-board", Version: "1.0.5", PurchaseDate: bought, Size: 217000000,
-			Details: &storeDetails{Developer: "Muamel Aljanahi"}},
+		{Name: "Game-board", Version: "1.0.5", PurchaseDate: bought, Size: 217000000, Developer: "Muamel Aljanahi"},
 		{Name: "Dusk", Version: "1.2", PurchaseDate: bought}, // left the store: no developer or size
 	}}
-	var titles []string
-	for _, c := range appColumns(owned) {
-		titles = append(titles, c.Title)
-	}
-	if got := strings.Join(titles, ", "); got != "Name, Version, Developer, Purchase date, Size" {
+	if got := titles(owned); got != "Name, Version, Developer, Purchase date, Size" {
 		t.Errorf("My apps columns = %s", got)
 	}
 	for col, want := range []string{"Game-board", "1.0.5", "Muamel Aljanahi", "September 5, 2026", "217 MB"} {
