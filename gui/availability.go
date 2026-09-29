@@ -106,6 +106,7 @@ feed:
 		if details := found[apps[i].ID]; details != nil {
 			apps[i].Availability = availabilityAvailable
 			apps[i].Details = details
+			apps[i].Size = details.sizeBytes()
 		} else {
 			apps[i].Availability = availabilityUnavailable
 		}

@@ -133,12 +133,8 @@ func TestFormatSize(t *testing.T) {
 func TestAppColumns(t *testing.T) {
 	app := App{Name: "YouTube", Price: 0, Size: 392695808}
 	store := &appModel{store: true, apps: []App{app}}
-	owned := &appModel{apps: []App{app}}
 	if got := len(appColumns(store)); got != 7 {
 		t.Errorf("Global search has %d columns, want 7", got)
-	}
-	if got := len(appColumns(owned)); got != 6 {
-		t.Errorf("My apps has %d columns, want 6 (no Size)", got)
 	}
 	if got := store.Value(0, 3); got != "Free" {
 		t.Errorf("Global search price = %q, want Free", got)
@@ -146,8 +142,28 @@ func TestAppColumns(t *testing.T) {
 	if got := store.Value(0, 4); got != "393 MB" {
 		t.Errorf("Global search size = %q, want 393 MB", got)
 	}
-	if got := owned.Value(0, 3); got != "" {
-		t.Errorf("My apps price = %q, want blank", got)
+
+	// My apps: Name, Version, Developer, Purchase date, Size.
+	bought := time.Date(2026, 9, 5, 12, 0, 0, 0, time.Local)
+	owned := &appModel{apps: []App{
+		{Name: "Game-board", Version: "1.0.5", PurchaseDate: bought, Size: 217000000,
+			Details: &storeDetails{Developer: "Muamel Aljanahi"}},
+		{Name: "Dusk", Version: "1.2", PurchaseDate: bought}, // left the store: no developer or size
+	}}
+	var titles []string
+	for _, c := range appColumns(owned) {
+		titles = append(titles, c.Title)
+	}
+	if got := strings.Join(titles, ", "); got != "Name, Version, Developer, Purchase date, Size" {
+		t.Errorf("My apps columns = %s", got)
+	}
+	for col, want := range []string{"Game-board", "1.0.5", "Muamel Aljanahi", "September 5, 2026", "217 MB"} {
+		if got := owned.Value(0, col); got != want {
+			t.Errorf("My apps column %d = %q, want %q", col, got, want)
+		}
+	}
+	if got := owned.Value(1, 2).(string) + owned.Value(1, 4).(string); got != "" {
+		t.Errorf("an app that left the store shows developer or size %q", got)
 	}
 }
 

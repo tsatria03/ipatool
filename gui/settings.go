@@ -53,7 +53,7 @@ type App struct {
 	Price        float64
 	PurchaseDate time.Time
 	Platforms    []string
-	Size         int64         // bytes, as listed by Apple; 0 when unknown (My apps)
+	Size         int64         // bytes, as listed by Apple; 0 when unknown (apps that left the store)
 	Availability availability  // My apps only: still on the account's App Store?
 	Details      *storeDetails // what the App Store lists about the app; nil when not looked up
 }
