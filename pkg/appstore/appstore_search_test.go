@@ -60,6 +60,12 @@ var _ = Describe("AppStore (Search)", func() {
 		Expect(result.Results).To(Equal([]App{{ID: 42, Platforms: []Platform{PlatformUnknown}, FileSizeBytes: "392695808"}}))
 	})
 
+	It("keeps the listed developer", func() {
+		var result searchResult
+		Expect(json.Unmarshal([]byte(`{"resultCount":1,"results":[{"trackId":42,"kind":"software","artistName":"Muamel Aljanahi"}]}`), &result)).To(Succeed())
+		Expect(result.Results).To(Equal([]App{{ID: 42, Platforms: []Platform{PlatformUnknown}, ArtistName: "Muamel Aljanahi"}}))
+	})
+
 	When("request is successful", func() {
 		const (
 			testID       = 0

@@ -17,6 +17,9 @@ type App struct {
 	// FileSizeBytes is the size Apple lists in search and lookup results, as the
 	// string Apple sends. It is empty for purchase history entries.
 	FileSizeBytes string `json:"fileSizeBytes,omitempty"`
+	// ArtistName is the developer Apple lists in search and lookup results. It is
+	// empty for purchase history entries.
+	ArtistName string `json:"artistName,omitempty"`
 }
 
 type VersionHistoryInfo struct {
