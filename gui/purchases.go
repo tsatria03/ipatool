@@ -27,7 +27,7 @@ const (
 // the list loads by itself.
 type purchasesPage struct {
 	load, previous, next, find *walk.PushButton
-	download, copy             *walk.PushButton
+	download, copy, info       *walk.PushButton
 	copyAll, export            *walk.PushButton
 	availability, filter, sort *walk.ComboBox
 	search, pageInfo           *walk.LineEdit
@@ -83,7 +83,7 @@ func (g *gui) purchasesTab() TabPage {
 			Label{Text: "Apps you o&wn:"},
 			TableView{AssignTo: &p.table, Model: p.model, Columns: appColumns(p.model),
 				OnItemActivated: func() { g.sendToDownload(p.table, p.model, g.purchaseFilter()) }},
-			g.listButtons(&p.table, p.model, g.purchaseFilter, &p.download, &p.copy,
+			g.listButtons(&p.table, p.model, g.purchaseFilter, &p.download, &p.copy, &p.info,
 				PushButton{AssignTo: &p.copyAll, Text: "Copy &all apps", OnClicked: g.copyAllApps},
 				PushButton{AssignTo: &p.export, Text: "&Export to JSON", OnClicked: g.exportApps}),
 		},
@@ -95,7 +95,7 @@ func (g *gui) purchasesTab() TabPage {
 // switching to another program never start it.
 func (g *gui) setupMyApps() {
 	p := &g.purchases
-	widgets := []walk.Widget{p.load, p.previous, p.next, p.availability, p.filter, p.pageInfo, p.search, p.find, p.sort, p.table, p.download, p.copy, p.copyAll, p.export}
+	widgets := []walk.Widget{p.load, p.previous, p.next, p.availability, p.filter, p.pageInfo, p.search, p.find, p.sort, p.table, p.download, p.copy, p.info, p.copyAll, p.export}
 	for _, w := range widgets {
 		w := w
 		w.FocusedChanged().Attach(func() {

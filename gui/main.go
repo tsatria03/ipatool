@@ -27,6 +27,9 @@ Alt + underlined letter: jump to a field or press a button.
 Enter in the search box: search.
 Enter in the Apple ID password box: log in.
 Enter on an app in a results list: send it to the Download page.
+App info (Alt+O), or Alt+Enter on an app in a list: show what the App Store lists
+  about it (developer, size, rating, what's new, description and more) in a window you
+  can read line by line; Escape closes it.
 Letters in an app list: jump to the next app whose name starts with them; type
   several letters quickly to match more of the name (current page only).
 Download (Alt+D on the Download page): starts the download and moves you to the
@@ -68,6 +71,10 @@ type gui struct {
 	download  downloadPage
 	purchases purchasesPage
 	logText   *walk.TextEdit
+
+	// detailsCache holds the App info looked up this session, by app ID (nil:
+	// not on the App Store), so pressing App info again asks Apple nothing.
+	detailsCache map[int64]*storeDetails
 }
 
 func main() {

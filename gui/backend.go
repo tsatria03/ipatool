@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -411,6 +412,20 @@ func (b *backend) ownedAppsAll() (apps []App, country string, err error) {
 		return nil
 	})
 	return apps, country, err
+}
+
+// appDetails looks up one app in the account's App Store with Apple's public
+// lookup service (no sign-in request); nil means the store doesn't have it.
+func (b *backend) appDetails(ctx context.Context, id int64) (*storeDetails, error) {
+	info, err := b.store.AccountInfo()
+	if err != nil {
+		return nil, err
+	}
+	country, err := appstore.CountryCode(info.Account.StoreFront)
+	if err != nil {
+		return nil, err
+	}
+	return lookupDetails(ctx, http.DefaultClient, country, id)
 }
 
 func fromStoreApps(apps []appstore.App) []App {

@@ -70,6 +70,18 @@ func (k keyRouter) OnPreTranslate(msg *win.MSG) bool {
 			}
 		}
 	}
+	// Alt+Enter in an app list: App info, like Windows' usual "properties" key.
+	if msg.Message == win.WM_SYSKEYDOWN && msg.WParam == win.VK_RETURN {
+		for _, list := range []struct {
+			table *walk.TableView
+			model *appModel
+		}{{g.search.table, g.search.model}, {g.purchases.table, g.purchases.model}} {
+			if list.table != nil && win.IsChild(list.table.Handle(), msg.HWnd) {
+				g.showAppInfo(list.table, list.model)
+				return true
+			}
+		}
+	}
 	// Route keyboard messages through the dialog manager so Tab and Alt+letter
 	// work in the main window, not just in dialogs.
 	return g.mw.OnPreTranslate(msg)
