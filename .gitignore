@@ -7,5 +7,8 @@
 **/*_mock.go
 exp/
 
+# Built programs (see "Building" in README.md)
+releases/
+
 # Personal scratchpad notes
 New File*.txt
