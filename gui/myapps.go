@@ -48,11 +48,21 @@ var sortChoices = []string{
 	"Bundle ID, Z to A",
 	"Newest to the App Store first",
 	"Oldest to the App Store first",
+	"Largest first",
+	"Smallest first",
+	"Developer, A to Z",
+	"Developer, Z to A",
 }
+
+// firstStoreSort is the first sortChoices entry that needs App Store details
+// (size or developer) from the availability check.
+const firstStoreSort = 8
 
 // sortApps sorts apps in place by the given sortChoices index. App IDs grow as
 // apps are added to the App Store, so sorting by ID approximates App Store age.
-// Ties fall back to bundle ID and then ID, so the order never shuffles.
+// Apps without a size or developer (they left the App Store) go last in both
+// directions of those sorts. Apps by one developer are sorted by name. Other
+// ties fall back to bundle ID and then ID, so the order never shuffles.
 func sortApps(apps []App, choice int) {
 	lower := strings.ToLower
 	tie := func(a, b App) int {
@@ -62,11 +72,13 @@ func sortApps(apps []App, choice int) {
 		return cmp.Compare(a.ID, b.ID)
 	}
 	var compare func(a, b App) int
+	var missing func(a App) bool // apps that always go last
+	byName := func(a, b App) int { return strings.Compare(lower(a.Name), lower(b.Name)) }
 	switch choice {
 	case 1:
 		compare = func(a, b App) int { return a.PurchaseDate.Compare(b.PurchaseDate) }
 	case 2:
-		compare = func(a, b App) int { return strings.Compare(lower(a.Name), lower(b.Name)) }
+		compare = byName
 	case 3:
 		compare = func(a, b App) int { return strings.Compare(lower(b.Name), lower(a.Name)) }
 	case 4:
@@ -77,10 +89,36 @@ func sortApps(apps []App, choice int) {
 		compare = func(a, b App) int { return cmp.Compare(b.ID, a.ID) }
 	case 7:
 		compare = func(a, b App) int { return cmp.Compare(a.ID, b.ID) }
+	case 8, 9:
+		missing = func(a App) bool { return a.Size <= 0 }
+		compare = func(a, b App) int { return cmp.Compare(b.Size, a.Size) }
+		if choice == 9 {
+			compare = func(a, b App) int { return cmp.Compare(a.Size, b.Size) }
+		}
+	case 10, 11:
+		missing = func(a App) bool { return a.Developer == "" }
+		sign := 1
+		if choice == 11 {
+			sign = -1
+		}
+		compare = func(a, b App) int {
+			if c := sign * strings.Compare(lower(a.Developer), lower(b.Developer)); c != 0 {
+				return c
+			}
+			return byName(a, b)
+		}
 	default:
 		compare = func(a, b App) int { return b.PurchaseDate.Compare(a.PurchaseDate) }
 	}
 	slices.SortStableFunc(apps, func(a, b App) int {
+		if missing != nil {
+			if ma, mb := missing(a), missing(b); ma != mb {
+				if ma {
+					return 1
+				}
+				return -1
+			}
+		}
 		if c := compare(a, b); c != 0 {
 			return c
 		}

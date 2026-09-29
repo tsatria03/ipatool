@@ -223,9 +223,15 @@ func (g *gui) showMyApps(focusList bool) {
 	p.model.PublishRowsReset()
 	narrowed := p.availability.CurrentIndex() > 0 || g.purchaseFilter() != "" || p.search.Text() != ""
 	info := pageInfoText(current, pages, len(view), len(p.all), narrowed)
-	if p.availability.CurrentIndex() > 0 && p.availabilityErr != nil {
-		info = "Couldn't check which apps are still on the App Store: " + errorText(p.availabilityErr) +
-			" Press Load (Alt+L) to try again."
+	if p.availabilityErr != nil {
+		switch {
+		case p.availability.CurrentIndex() > 0:
+			info = "Couldn't check which apps are still on the App Store: " + errorText(p.availabilityErr) +
+				" Press Load (Alt+L) to try again."
+		case p.sort.CurrentIndex() >= firstStoreSort:
+			info = "Couldn't get sizes and developers from the App Store: " + errorText(p.availabilityErr) +
+				" Press Load (Alt+L) to try again."
+		}
 	}
 	_ = p.pageInfo.SetText(info)
 	if len(apps) > 0 {

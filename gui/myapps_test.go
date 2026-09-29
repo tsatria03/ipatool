@@ -77,19 +77,24 @@ func TestPageOf(t *testing.T) {
 func TestSortApps(t *testing.T) {
 	day := func(d int) time.Time { return time.Date(2024, 1, d, 0, 0, 0, 0, time.UTC) }
 	base := []App{
-		{ID: 300, Name: "banana", BundleID: "com.b.app", PurchaseDate: day(2)},
-		{ID: 100, Name: "Apple", BundleID: "org.a.app", PurchaseDate: day(3)},
-		{ID: 200, Name: "cherry", BundleID: "com.a.app", PurchaseDate: day(1)},
+		{ID: 300, Name: "banana", BundleID: "com.b.app", PurchaseDate: day(2), Size: 50, Developer: "Zeta"},
+		{ID: 100, Name: "Apple", BundleID: "org.a.app", PurchaseDate: day(3), Size: 200, Developer: "alpha"},
+		{ID: 200, Name: "cherry", BundleID: "com.a.app", PurchaseDate: day(1), Size: 10, Developer: "Zeta"},
+		{ID: 400, Name: "date", BundleID: "net.d.app", PurchaseDate: day(4)}, // left the store: no size or developer
 	}
-	want := map[int][]string{ // first letters of names, in order
-		0: {"Apple", "banana", "cherry"}, // newest purchase first
-		1: {"cherry", "banana", "Apple"}, // oldest purchase first
-		2: {"Apple", "banana", "cherry"}, // name A-Z, ignoring capitals
-		3: {"cherry", "banana", "Apple"}, // name Z-A
-		4: {"cherry", "banana", "Apple"}, // bundle ID A-Z: com.a, com.b, org.a
-		5: {"Apple", "banana", "cherry"}, // bundle ID Z-A
-		6: {"banana", "cherry", "Apple"}, // newest to the App Store: ID 300, 200, 100
-		7: {"Apple", "cherry", "banana"}, // oldest to the App Store
+	want := map[int][]string{
+		0:  {"date", "Apple", "banana", "cherry"}, // newest purchase first
+		1:  {"cherry", "banana", "Apple", "date"}, // oldest purchase first
+		2:  {"Apple", "banana", "cherry", "date"}, // name A-Z, ignoring capitals
+		3:  {"date", "cherry", "banana", "Apple"}, // name Z-A
+		4:  {"cherry", "banana", "date", "Apple"}, // bundle ID A-Z: com.a, com.b, net.d, org.a
+		5:  {"Apple", "date", "banana", "cherry"}, // bundle ID Z-A
+		6:  {"date", "banana", "cherry", "Apple"}, // newest to the App Store: ID 400, 300, 200, 100
+		7:  {"Apple", "cherry", "banana", "date"}, // oldest to the App Store
+		8:  {"Apple", "banana", "cherry", "date"}, // largest first; no size last
+		9:  {"cherry", "banana", "Apple", "date"}, // smallest first; no size still last
+		10: {"Apple", "banana", "cherry", "date"}, // developer A-Z (alpha, Zeta, Zeta: by name); none last
+		11: {"banana", "cherry", "Apple", "date"}, // developer Z-A, same developer still by name A-Z; none last
 	}
 	if len(want) != len(sortChoices) {
 		t.Fatalf("test covers %d choices, sortChoices has %d", len(want), len(sortChoices))
