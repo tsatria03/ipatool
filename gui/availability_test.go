@@ -27,7 +27,8 @@ func fakeLookup(t *testing.T, available map[string]bool, requests *atomic.Int32)
 			if available[id] {
 				var n int64
 				fmt.Sscan(id, &n)
-				results = append(results, map[string]any{"trackId": n})
+				results = append(results, map[string]any{"trackId": n, "artistName": "Developer " + id,
+					"fileSizeBytes": fmt.Sprint(n * 1000)})
 			}
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"resultCount": len(results), "results": results})
@@ -71,6 +72,13 @@ func TestCheckAvailability(t *testing.T) {
 	if got := len(filterApps(apps, 0, "", "")); got != 320 {
 		t.Errorf("All apps shows %d, want 320", got)
 	}
+	// Available apps keep their store details; apps that left the store have none.
+	if d := apps[4].Details; d == nil || d.Developer != "Developer 5" || d.sizeBytes() != 5000 {
+		t.Errorf("app 5 details = %+v", d)
+	}
+	if apps[3].Details != nil {
+		t.Errorf("app 4 left the store but has details %+v", apps[3].Details)
+	}
 	// Combined with search: "App 4" matches apps 4 and 40-49; of those, 4, 40, 44 and 48 left.
 	if got := len(filterApps(apps, 2, "", "App 4")); got != 4 {
 		t.Errorf("Unavailable + search shows %d, want 4", got)
@@ -98,6 +106,34 @@ func TestCheckAvailabilityFailure(t *testing.T) {
 	}
 	if got := len(filterApps(apps, 2, "", "")); got != 0 {
 		t.Errorf("Unavailable shows %d apps after a failed check, want 0", got)
+	}
+}
+
+func TestParseStoreDetailsOddField(t *testing.T) {
+	// A field of an unexpected type (here a number instead of text) loses only that field.
+	d := parseStoreDetails(json.RawMessage(`{"trackId": 7, "artistName": 42, "trackName": "Dice Only", "averageUserRating": 4.5}`))
+	if d.ID != 7 || d.Name != "Dice Only" || d.Rating != 4.5 || d.Developer != "" {
+		t.Errorf("details = %+v", d)
+	}
+}
+
+func TestLookupDetails(t *testing.T) {
+	var requests atomic.Int32
+	server := fakeLookup(t, map[string]bool{"5": true}, &requests)
+	defer server.Close()
+	old := lookupURL
+	lookupURL = server.URL
+	defer func() { lookupURL = old }()
+
+	d, err := lookupDetails(context.Background(), server.Client(), "US", 5)
+	if err != nil || d == nil || d.ID != 5 {
+		t.Fatalf("lookupDetails(5) = %+v, %v", d, err)
+	}
+	if d, err := lookupDetails(context.Background(), server.Client(), "US", 6); err != nil || d != nil {
+		t.Errorf("lookupDetails(6) = %+v, %v; want nil, nil (not on the store)", d, err)
+	}
+	if requests.Load() != 2 {
+		t.Errorf("%d requests, want 2", requests.Load())
 	}
 }
 

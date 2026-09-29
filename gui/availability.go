@@ -35,10 +35,11 @@ const (
 )
 
 // checkAvailability marks every app available or unavailable in the given
-// country (such as "US"). An app is unavailable when the lookup service doesn't
-// return it. If any request fails, every app stays unknown and the error is
-// returned, so a failed check never makes apps look unavailable. progress, if
-// set, is called (from other goroutines) after each request.
+// country (such as "US"), and keeps the store details the lookup service sends
+// for the available ones (App info shows them). An app is unavailable when the
+// lookup service doesn't return it. If any request fails, every app stays
+// unknown and the error is returned, so a failed check never makes apps look
+// unavailable. progress, if set, is called (from other goroutines) after each request.
 func checkAvailability(ctx context.Context, client *http.Client, country string, apps []App,
 	progress func(done, total int)) error {
 	var batches [][]string
@@ -55,7 +56,7 @@ func checkAvailability(ctx context.Context, client *http.Client, country string,
 	defer cancel()
 	var (
 		mu       sync.Mutex
-		found    = map[int64]bool{}
+		found    = map[int64]*storeDetails{}
 		firstErr error
 		done     int
 		wg       sync.WaitGroup
@@ -73,8 +74,8 @@ func checkAvailability(ctx context.Context, client *http.Client, country string,
 					firstErr = err
 					cancel() // stop the other requests
 				}
-				for _, id := range returned {
-					found[id] = true
+				for _, details := range returned {
+					found[details.ID] = details
 				}
 				done++
 				n := done
@@ -102,8 +103,9 @@ feed:
 		return firstErr
 	}
 	for i := range apps {
-		if found[apps[i].ID] {
+		if details := found[apps[i].ID]; details != nil {
 			apps[i].Availability = availabilityAvailable
+			apps[i].Details = details
 		} else {
 			apps[i].Availability = availabilityUnavailable
 		}
@@ -111,8 +113,9 @@ feed:
 	return nil
 }
 
-// lookupIDs asks the lookup service about ids and returns the IDs it knows.
-func lookupIDs(ctx context.Context, client *http.Client, country string, ids []string) ([]int64, error) {
+// lookupIDs asks the lookup service about ids and returns the details of the
+// apps it knows.
+func lookupIDs(ctx context.Context, client *http.Client, country string, ids []string) ([]*storeDetails, error) {
 	query := url.Values{"id": {strings.Join(ids, ",")}, "country": {strings.ToLower(country)}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, lookupURL+"?"+query.Encode(), nil)
 	if err != nil {
@@ -127,16 +130,16 @@ func lookupIDs(ctx context.Context, client *http.Client, country string, ids []s
 		return nil, fmt.Errorf("the App Store lookup service answered %s", res.Status)
 	}
 	var body struct {
-		Results []struct {
-			TrackID int64 `json:"trackId"`
-		} `json:"results"`
+		Results []json.RawMessage `json:"results"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("invalid response from the App Store lookup service: %w", err)
 	}
-	returned := make([]int64, 0, len(body.Results))
-	for _, r := range body.Results {
-		returned = append(returned, r.TrackID)
+	returned := make([]*storeDetails, 0, len(body.Results))
+	for _, raw := range body.Results {
+		if details := parseStoreDetails(raw); details.ID != 0 {
+			returned = append(returned, details)
+		}
 	}
 	return returned, nil
 }
