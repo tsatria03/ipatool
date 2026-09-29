@@ -93,7 +93,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
 - Downloads are named like iTunes 12.6.5.3 named them, with the app's name and version, such as `Dice Only 1.9.ipa`, instead of ipatool's `bundle.id_appID_version.ipa`. Characters Windows doesn't allow in file names are replaced (`Battle Prime: Modern War` becomes `Battle Prime - Modern War`), very long names are shortened, and downloading the same version again replaces the file.
 - See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
-- Browse the apps your account owns, 100 at a time. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
+- Browse the apps your account owns, 100 at a time, each read as its name, version, developer, purchase date and size. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
 - Sort your apps by purchase date, name or bundle ID (A to Z or Z to A), or by how long they've been on the App Store.
 - See which of your apps are still on the App Store and which have been removed, with the availability filter.
 - Copy all your apps to the clipboard as text, or export them to a JSON file, following the current filters, search and sort. See [The My apps page](#the-my-apps-page).
@@ -119,7 +119,7 @@ My apps lists every app your Apple Account owns. The first time you move into th
 | Search my apps | Alt+S | Type part of an app's name or bundle ID, then press Enter. |
 | Search | Alt+R | Does the same as pressing Enter in Search my apps. |
 | Sort by | Alt+B | Newest or oldest purchase first; name A to Z or Z to A; bundle ID A to Z or Z to A; newest or oldest to the App Store first. |
-| Apps you own | Alt+W | The list: name, bundle ID, version, platforms and app ID. Press Enter on an app to send it to the Download page. |
+| Apps you own | Alt+W | The list: name, version, developer, purchase date and size, for example "Game-board; Version: 1.0.5; Developer: Muamel Aljanahi; Purchase date: September 5, 2026; Size: 217 MB". Apps that left the App Store have no developer or size. App info has the rest, such as the bundle ID, platforms and App ID. Press Enter on an app to send it to the Download page. |
 | Download selected | Alt+D | Sends the selected app to the Download page. |
 | Copy bundle ID | Alt+C | Copies the selected app's bundle ID. |
 | App info | Alt+O | Shows what the App Store lists about the selected app. Alt+Enter in the list does the same. See [App info](#app-info). |
@@ -130,7 +130,7 @@ The availability filter, the platform filter and Sort by apply as you arrow thro
 
 **Availability** comes from Apple's public lookup service, which only returns apps currently for sale in your account's country. An app that's unavailable may have been removed by its developer or by Apple, or only be sold in other countries. Your purchase history keeps it either way, and you can often still download it.
 
-**Downloading apps that left the App Store:** select the app in My apps and press Download selected (or Enter), then Download. Like iTunes and your iPhone, the GUI then downloads it by its App ID from your purchase history. If you type a bundle ID on the Download page yourself and Apple can't find it, type the app's App ID instead; My apps shows it in every row. Apple may no longer have the files for some removed apps, so not every one can be downloaded. If the check can't reach Apple, your apps still load; All apps works, and the Page field explains that availability couldn't be checked until you press Load again.
+**Downloading apps that left the App Store:** select the app in My apps and press Download selected (or Enter), then Download. Like iTunes and your iPhone, the GUI then downloads it by its App ID from your purchase history. If you type a bundle ID on the Download page yourself and Apple can't find it, type the app's App ID instead; App info (Alt+O) shows it for every app in My apps. Apple may no longer have the files for some removed apps, so not every one can be downloaded. If the check can't reach Apple, your apps still load; All apps works, and the Page field explains that availability couldn't be checked until you press Load again.
 
 **Copy all apps and Export to JSON** include every page, not just the 100 apps on screen. They follow the availability and platform filters, Search my apps and Sort by, so with nothing narrowed you get all your apps in the chosen order. If your apps haven't loaded yet, or are still loading, they wait for the load and then continue. The copied text never includes availability.
 
