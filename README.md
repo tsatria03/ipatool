@@ -89,6 +89,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Every field, button and list can be read by screen readers such as NVDA, JAWS and Narrator.
 - Sign in with your Apple Account, including two-factor codes, check which account is signed in, and sign out.
 - Global search: search the whole App Store by name and platform, see each app's price and size (in KB, MB or GB, as Apple lists it), then send any result straight to the download page.
+- App info: press Alt+O (the App info button) or Alt+Enter on an app in either list to read what the App Store lists about it, such as the developer, size, age rating, rating, release dates, what's new and the description, in a window you can read line by line and copy. See [App info](#app-info).
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
 - Downloads are named like iTunes 12.6.5.3 named them, with the app's name and version, such as `Dice Only 1.9.ipa`, instead of ipatool's `bundle.id_appID_version.ipa`. Characters Windows doesn't allow in file names are replaced (`Battle Prime: Modern War` becomes `Battle Prime - Modern War`), very long names are shortened, and downloading the same version again replaces the file.
 - See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
@@ -121,6 +122,7 @@ My apps lists every app your Apple Account owns. The first time you move into th
 | Apps you own | Alt+W | The list: name, bundle ID, version, platforms and app ID. Press Enter on an app to send it to the Download page. |
 | Download selected | Alt+D | Sends the selected app to the Download page. |
 | Copy bundle ID | Alt+C | Copies the selected app's bundle ID. |
+| App info | Alt+O | Shows what the App Store lists about the selected app. Alt+Enter in the list does the same. See [App info](#app-info). |
 | Copy all apps | Alt+A | Copies every matching app as text. |
 | Export to JSON | Alt+E | Saves every matching app, with details about the export, as a JSON file. |
 
@@ -166,6 +168,40 @@ Export to JSON suggests `My apps.json` in your download folder and asks before r
 
 The file is UTF-8, so app names in any language are kept as they are.
 
+### App info
+
+Select an app in Global search or My apps and press App info (Alt+O), or press Alt+Enter in the list. A window opens with a read-only Details box (Alt+D), where your screen reader reads one fact per line:
+
+```text
+Name: Dice Only
+Developer: Unboxing Solutions B.V.
+Version: 1.12
+Size: 40 MB
+Price: Free
+Category: Games
+Age rating: 4+
+Minimum OS version: 17.6
+Languages: NL, EN, HI
+Released: January 15, 2023
+Updated: September 19, 2026
+Platforms: iphone, ipad
+Bundle ID: com.unboxingsolutions.DiceOnly
+App ID: 1665283082
+App Store link: https://apps.apple.com/us/app/dice-only/id1665283082?uo=4
+
+What's new:
+...
+
+Description:
+...
+```
+
+Lines Apple has nothing for are left out (this app has no ratings yet; others show a line like `Rating: 4.8 out of 5, 13 ratings`), and My apps adds the date you got the app. Copy all (Alt+C) copies the whole text, and Close or Escape returns you to the list.
+
+- **My apps** already has these details for every app still on the App Store, from the availability check, so App info opens instantly and asks Apple nothing.
+- **Apps that left the App Store** have no details at Apple; the window says so and shows what your purchase history knows (name, version, platforms, purchase date, bundle ID and App ID).
+- **Global search** looks the app up once with Apple's public lookup service (no sign-in), and remembers it until you close the GUI.
+
 ### Running and building
 
 Go 1.27 or newer is required (see `gui/go.mod`).
@@ -195,7 +231,7 @@ The GUI uses ipatool's engine (`pkg/appstore` and the packages around it) direct
   - `appstore.App` in `pkg/appstore/app.go` has a `FileSizeBytes` field, which keeps the size Apple lists in search and lookup results, for Global search's Size column. The command line tool's output is unchanged, because it lists its fields explicitly.
   - `appstore.DownloadOutput` in `pkg/appstore/appstore_download.go` has `Name` and `Version`, the app's store name (`itemName`) and version from Apple's download answer (falling back to `bundleVersion` for older apps without `bundleShortVersionString`). The GUI renames finished downloads to `Name Version.ipa` with them (`gui/filenames.go`), after the license data is copied in, so resuming and licensing work as before. The command line tool's file names are unchanged.
   - `pkg/appstore/storefront.go` exports `CountryCode`, a wrapper around the private store front to country mapping, so My apps can check availability in the account's country.
-- **Availability check:** after the purchase history loads, `gui/availability.go` sends the owned app IDs to Apple's public lookup service (`itunes.apple.com/lookup`, 150 IDs per request, 4 requests at a time, no sign-in) for the account's country. Apps it doesn't return are marked unavailable. If any request fails, every app stays unknown, so a failed check never makes apps look unavailable.
+- **Availability check:** after the purchase history loads, `gui/availability.go` sends the owned app IDs to Apple's public lookup service (`itunes.apple.com/lookup`, 150 IDs per request, 4 requests at a time, no sign-in) for the account's country. Apps it doesn't return are marked unavailable. If any request fails, every app stays unknown, so a failed check never makes apps look unavailable. The lookup answers include each app's full store record, which the check keeps (`storeDetails` in `gui/details.go`) for App info; a field of an unexpected type is left empty instead of failing the check.
 - **Progress and cancelling:** downloads report progress through a `progressbar` that isn't drawn, read once a second for the status bar and the Result field. Escape cancels the task's context, which stops a download; a cancelled task's result is discarded.
 
 After merging upstream changes, build the GUI and run `go test .` in the `gui` folder, since changes in `pkg/appstore` or `cmd` can affect it.
@@ -226,7 +262,9 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `purchases.go` | My apps page |
 | `myapps.go` | Local search, filters, sorting, paging, and the copy and JSON export formats for My apps |
 | `availability.go` | Checks which owned apps are still on the account's App Store |
-| `availability_test.go` | Tests the availability check against a fake lookup service, including failures |
+| `availability_test.go` | Tests the availability check and the store details against a fake lookup service, including failures |
+| `details.go` | App info: the store details, their text and the App info window |
+| `details_test.go` | Tests for the App info text |
 | `myapps_test.go` | Tests for the search, filter, sorting, paging, sizes and export formats |
 | `messages.go` | Plain-language error messages, such as for paid apps the account hasn't bought |
 | `errors_test.go` | Checks the error messages and the download license rules against a fake App Store |
