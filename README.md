@@ -94,7 +94,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Downloads are named like iTunes 12.6.5.3 named them, with the app's name and version, such as `Dice Only 1.9.ipa`, instead of ipatool's `bundle.id_appID_version.ipa`. Characters Windows doesn't allow in file names are replaced (`Battle Prime: Modern War` becomes `Battle Prime - Modern War`), very long names are shortened, and downloading the same version again replaces the file.
 - See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
 - Browse the apps your account owns, 100 at a time, each read as its name, version, developer, purchase date and size. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
-- Sort your apps by purchase date, name or bundle ID (A to Z or Z to A), or by how long they've been on the App Store.
+- Sort your apps by purchase date, name, bundle ID, developer (A to Z or Z to A) or size (largest or smallest first), or by how long they've been on the App Store.
 - See which of your apps are still on the App Store and which have been removed, with the availability filter.
 - Copy all your apps to the clipboard as text, or export them to a JSON file, following the current filters, search and sort. See [The My apps page](#the-my-apps-page).
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
@@ -118,7 +118,7 @@ My apps lists every app your Apple Account owns. The first time you move into th
 | Page | Alt+G | Read-only. For example "Page 2 of 36, 3554 apps", or "Page 1 of 1, 13 of 3554 apps match" while searching or filtering. |
 | Search my apps | Alt+S | Type part of an app's name or bundle ID, then press Enter. |
 | Search | Alt+R | Does the same as pressing Enter in Search my apps. |
-| Sort by | Alt+B | Newest or oldest purchase first; name A to Z or Z to A; bundle ID A to Z or Z to A; newest or oldest to the App Store first. |
+| Sort by | Alt+B | Newest or oldest purchase first; name A to Z or Z to A; bundle ID A to Z or Z to A; newest or oldest to the App Store first; largest or smallest first; developer A to Z or Z to A. Apps that left the App Store have no size or developer, so those four orders put them last. Apps by the same developer are sorted by name. |
 | Apps you own | Alt+W | The list: name, version, developer, purchase date and size, for example "Game-board; Version: 1.0.5; Developer: Muamel Aljanahi; Purchase date: September 5, 2026; Size: 217 MB". Apps that left the App Store have no developer or size. App info has the rest, such as the bundle ID, platforms and App ID. Press Enter on an app to send it to the Download page. |
 | Download selected | Alt+D | Sends the selected app to the Download page. |
 | Copy bundle ID | Alt+C | Copies the selected app's bundle ID. |
