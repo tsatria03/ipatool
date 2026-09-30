@@ -17,12 +17,12 @@ This fork builds two programs with Go:
 - `ipatool.exe`, the command line tool.
 - `ipatool-gui.exe`, the accessible GUI. It has ipatool built in, so it works on its own; you don't need `ipatool.exe` to use it.
 
-Run these commands from the repository folder to build both into the `releases` folder:
+Run these commands from the repository folder to build both into the `releases\ipatool` folder:
 
 ```shell
-$ go build -o releases\ipatool.exe
+$ go build -o releases\ipatool\ipatool.exe
 $ cd gui
-$ go build -ldflags=-H=windowsgui -o ..\releases\ipatool-gui.exe .
+$ go build -ldflags=-H=windowsgui -o ..\releases\ipatool\ipatool-gui.exe .
 ```
 
 Build only the one you want, or both. They share the saved login, so signing in with one also signs in the other. You can also skip building and run the GUI from source; see [Running and building](#running-and-building).
@@ -68,7 +68,7 @@ if running in an automated environment.
 The tool can be compiled for Windows using the Go toolchain.
 
 ```shell
-$ go build -o releases\ipatool.exe
+$ go build -o releases\ipatool\ipatool.exe
 ```
 
 Builds for other platforms aren't supported by this fork. ipatool's keychain support on macOS and Linux needs C code compiled for those systems (cgo), so it can't be cross-compiled from Windows; use upstream's releases there.
@@ -209,7 +209,7 @@ Go 1.27 or newer is required (see `gui/go.mod`).
 
 - **From source, no console window:** double-click `gui\run-gui.vbs`. It runs `go run -ldflags=-H=windowsgui .` in the `gui` folder.
 - **From a terminal:** `cd gui` and then `go run .`
-- **As an exe:** `cd gui` and then `go build -ldflags=-H=windowsgui -o ..\releases\ipatool-gui.exe .`
+- **As an exe:** `cd gui` and then `go build -ldflags=-H=windowsgui -o ..\releases\ipatool\ipatool-gui.exe .`
 
 The Common Controls v6 manifest that walk needs is embedded through `gui/rsrc.syso`, which Go links automatically. If `gui/app.manifest` changes, regenerate it:
 
