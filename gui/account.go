@@ -10,12 +10,25 @@ import (
 	"github.com/majd/ipatool/v2/pkg/appstore"
 	"github.com/tailscale/walk"
 	. "github.com/tailscale/walk/declarative"
+	"github.com/tailscale/win"
 )
 
 type accountPage struct {
 	passphrase, email, password, status *walk.LineEdit
-	remember                            *walk.CheckBox
+	remember, showPassphrase            *walk.CheckBox
+	showPassword                        *walk.CheckBox
+	emailLabel, passwordLabel           *walk.Label
+	login, logout                       *walk.PushButton
 }
+
+// accountState is whether an account is signed in, as far as the GUI knows.
+type accountState int8
+
+const (
+	accountUnknown   accountState = iota // not checked yet
+	accountSignedIn                      // a check or login succeeded
+	accountSignedOut                     // logged out, or the check found no usable login
+)
 
 func (g *gui) accountTab() TabPage {
 	a := &g.account
@@ -24,16 +37,25 @@ func (g *gui) accountTab() TabPage {
 	rows = append(rows, labeled("&Keychain passphrase (not your Apple ID password):",
 		LineEdit{AssignTo: &a.passphrase, Text: g.settings.Passphrase, PasswordMode: true,
 			Accessibility: accessible("&Keychain passphrase (not your Apple ID password):")},
-		CheckBox{AssignTo: &a.remember, Text: "Re&member passphrase", Checked: g.settings.Passphrase != ""})...)
-	rows = append(rows, labeled("Apple ID &email:",
-		LineEdit{AssignTo: &a.email, Text: g.settings.Email, Accessibility: accessible("Apple ID &email:")}, nil)...)
-	rows = append(rows, labeled("Apple ID pass&word:",
+		Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+			CheckBox{AssignTo: &a.remember, Text: "Re&member passphrase", Checked: g.settings.Passphrase != ""},
+			CheckBox{AssignTo: &a.showPassphrase, Text: "Show &passphrase",
+				OnCheckedChanged: func() { reveal(a.passphrase, a.showPassphrase.Checked()) }},
+		}})...)
+	rows = append(rows,
+		Label{AssignTo: &a.emailLabel, Text: "Apple ID &email:"},
+		LineEdit{AssignTo: &a.email, Text: g.settings.Email, Accessibility: accessible("Apple ID &email:")},
+		HSpacer{},
+		Label{AssignTo: &a.passwordLabel, Text: "Apple ID pass&word:"},
 		LineEdit{AssignTo: &a.password, PasswordMode: true, Accessibility: accessible("Apple ID pass&word:"),
 			OnKeyDown: func(key walk.Key) {
 				if key == walk.KeyReturn {
 					g.login()
 				}
-			}}, nil)...)
+			}},
+		CheckBox{AssignTo: &a.showPassword, Text: "S&how password",
+			OnCheckedChanged: func() { reveal(a.password, a.showPassword.Checked()) }},
+	)
 
 	return TabPage{
 		Title:  "Account",
@@ -41,9 +63,9 @@ func (g *gui) accountTab() TabPage {
 		Children: []Widget{
 			Composite{Layout: Grid{Columns: 3, MarginsZero: true}, Children: rows},
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-				PushButton{Text: "&Log in", OnClicked: g.login},
+				PushButton{AssignTo: &a.login, Text: "&Log in", OnClicked: g.login},
 				PushButton{Text: "&Check account", OnClicked: func() { g.checkAccount(true) }},
-				PushButton{Text: "Log &out", OnClicked: g.logout},
+				PushButton{AssignTo: &a.logout, Text: "Log &out", OnClicked: g.logout},
 				HSpacer{},
 			}},
 			Composite{Layout: Grid{Columns: 3, MarginsZero: true}, Children: labeled("Account &status:",
@@ -78,9 +100,43 @@ func (g *gui) login() {
 			default:
 				_ = g.account.password.SetText("")
 				g.showAccount(result.(appstore.Account))
+				g.setAccountState(accountSignedIn)
+				// The message box returns focus here, so the status is read again.
+				_ = g.account.status.SetFocus()
 				g.info("Logged in", g.account.status.Text())
 			}
 		})
+}
+
+// setAccountState shows only the controls that apply: while signed in, the
+// Apple ID email and password and Log in are hidden; once signed out, Log out
+// is. Before the first check everything is shown, since a saved login may
+// exist. Focus never stays on a control that was just hidden.
+func (g *gui) setAccountState(state accountState) {
+	a := &g.account
+	signedIn := state == accountSignedIn
+	if signedIn {
+		// Hide the typed password again, so it's hidden when the box comes back.
+		a.showPassword.SetChecked(false)
+	}
+	for _, w := range []walk.Widget{a.emailLabel, a.email, a.passwordLabel, a.password, a.showPassword, a.login} {
+		w.SetVisible(!signedIn)
+	}
+	a.logout.SetVisible(state != accountSignedOut)
+	if focused := win.GetFocus(); focused != 0 && !win.IsWindowVisible(focused) {
+		if signedIn {
+			_ = a.status.SetFocus()
+		} else {
+			_ = a.email.SetFocus()
+		}
+	}
+}
+
+// reveal shows what was typed in a password box, or hides it again with the
+// same character the box started with.
+func reveal(box *walk.LineEdit, show bool) {
+	box.SetPasswordMode(!show)
+	box.Invalidate() // Windows doesn't redraw the text by itself
 }
 
 // askTwoFactorCode is called from the login task's goroutine: it shows the code
@@ -112,8 +168,10 @@ func (g *gui) checkAccount(announce bool) {
 		func(result any, err error) {
 			if err != nil {
 				_ = g.account.status.SetText(errorText(err))
+				g.setAccountState(accountSignedOut)
 			} else {
 				g.showAccount(result.(appstore.Account))
+				g.setAccountState(accountSignedIn)
 			}
 			g.setStatus(g.account.status.Text())
 			if announce {
@@ -144,6 +202,8 @@ func (g *gui) logout() {
 				return
 			}
 			_ = g.account.status.SetText("Signed out.")
+			g.setAccountState(accountSignedOut)
+			_ = g.account.email.SetFocus() // ready to log in again
 			g.info("Logged out", "You are signed out.")
 		})
 }

@@ -26,6 +26,9 @@ Tab / Shift+Tab: move between fields and buttons (Tab from the page tabs enters 
 Alt + underlined letter: jump to a field or press a button.
 Enter in the search box: search.
 Enter in the Apple ID password box: log in.
+Account page: while you're signed in, the Apple ID email, password and Log in are
+  hidden; after you log out, Log out is. Show passphrase (Alt+P) and Show password
+  (Alt+H) reveal what you typed.
 Enter on an app in a results list: send it to the Download page.
 App info (Alt+O), or Alt+Enter on an app in a list: show what the App Store lists
   about it (developer, size, rating, what's new, description and more) in a window you
