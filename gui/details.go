@@ -12,6 +12,7 @@ import (
 
 	"github.com/tailscale/walk"
 	. "github.com/tailscale/walk/declarative"
+	"github.com/tailscale/win"
 )
 
 // storeDetails is what Apple's public lookup service tells about an app that is
@@ -168,30 +169,36 @@ func (g *gui) showAppInfo(table *walk.TableView, model *appModel) {
 		})
 }
 
-// openAppInfo shows detailsText in a read-only text box that screen readers
-// read line by line, with Copy all and Close (or Escape) buttons. Focus then
-// returns to the list.
+// openAppInfo shows detailsText in a text window; focus then returns to the list.
 func (g *gui) openAppInfo(table *walk.TableView, app App) {
+	g.textWindow("App info, "+app.Name, "&Details:", detailsText(app), "Copied the app info of "+app.Name+".", table)
+}
+
+// textWindow shows text in a read-only text box that screen readers read line
+// by line, with Copy all and Close (or Escape) buttons. copied is the status
+// bar text after Copy all. Focus then returns to back, or where it was if back
+// is nil.
+func (g *gui) textWindow(title, label, text, copied string, back walk.Widget) {
+	previous := win.GetFocus()
 	var dlg *walk.Dialog
-	var text *walk.TextEdit
+	var box *walk.TextEdit
 	var closeButton *walk.PushButton
 	err := Dialog{
 		AssignTo:     &dlg,
-		Title:        "App info, " + app.Name,
+		Title:        title,
 		CancelButton: &closeButton,
 		MinSize:      Size{Width: 600, Height: 500},
 		Layout:       VBox{},
 		Children: []Widget{
-			Label{Text: "&Details:"},
-			TextEdit{AssignTo: &text, ReadOnly: true, VScroll: true, Text: detailsText(app),
-				Accessibility: accessible("&Details:")},
+			Label{Text: label},
+			TextEdit{AssignTo: &box, ReadOnly: true, VScroll: true, Text: text, Accessibility: accessible(label)},
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 				PushButton{Text: "&Copy all", OnClicked: func() {
-					if err := walk.Clipboard().SetText(text.Text()); err != nil {
+					if err := walk.Clipboard().SetText(box.Text()); err != nil {
 						g.error("Could not copy", "Windows didn't accept the text on the clipboard. Try again.")
 						return
 					}
-					g.setStatus("Copied the app info of " + app.Name + ".")
+					g.setStatus(copied)
 				}},
 				HSpacer{},
 				PushButton{AssignTo: &closeButton, Text: "Close", OnClicked: func() { dlg.Cancel() }},
@@ -202,8 +209,12 @@ func (g *gui) openAppInfo(table *walk.TableView, app App) {
 		return
 	}
 	assignControlIDs(dlg.Handle())
-	_ = text.SetFocus()
-	text.SetTextSelection(0, 0) // start at the top, nothing selected
+	_ = box.SetFocus()
+	box.SetTextSelection(0, 0) // start at the top, nothing selected
 	dlg.Run()
-	_ = table.SetFocus()
+	if back != nil {
+		_ = back.SetFocus()
+	} else if previous != 0 {
+		win.SetFocus(previous)
+	}
 }
