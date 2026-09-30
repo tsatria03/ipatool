@@ -17,33 +17,27 @@ import (
 
 var pageTitles = []string{"Account", "Global search", "Download", "My apps", "Log"}
 
-const shortcutsHelp = `Keyboard shortcuts
-
-Ctrl+1 to Ctrl+5: go to the Account, Global search, Download, My apps or Log page.
+// shortcutsHelp is the F1 text, shown in a read-only text box: one shortcut
+// per line, so arrowing down reads one at a time (the box wraps long lines).
+const shortcutsHelp = `Ctrl+1 to Ctrl+5: go to the Account, Global search, Download, My apps or Log page.
 Ctrl+Tab / Ctrl+Shift+Tab: next / previous page.
 Switching pages puts you on the page tabs; Left and Right arrows also switch pages there.
 Tab / Shift+Tab: move between fields and buttons (Tab from the page tabs enters the page).
 Alt + underlined letter: jump to a field or press a button.
 Enter in the search box: search.
 Enter in the Apple ID password box: log in.
-Account page: while you're signed in, the Apple ID email, password and Log in are
-  hidden; after you log out, Log out is. Show passphrase (Alt+P) and Show password
-  (Alt+H) reveal what you typed.
+Account page: while you're signed in, the Apple ID email, password and Log in are hidden; after you log out, Log out is.
+Show passphrase (Alt+P) and Show password (Alt+H) on the Account page: reveal what you typed.
 Enter on an app in a results list: send it to the Download page.
-App info (Alt+O), or Alt+Enter on an app in a list: show what the App Store lists
-  about it (developer, size, rating, what's new, description and more) in a window you
-  can read line by line; Escape closes it.
-Letters in an app list: jump to the next app whose name starts with them; type
-  several letters quickly to match more of the name (current page only).
-Download (Alt+D on the Download page): starts the download and moves you to the
-  Result field, which shows the progress.
-My apps: your apps load the first time you move into the page. Search my apps (Alt+S),
-  the availability filter (Alt+I: all apps, available, or no longer on the App Store),
-  the platform filter (Alt+T) and Sort by (Alt+B) work instantly; Enter in any of them
-  moves to the list. The Search button (Alt+R) does the same as Enter in Search my apps.
-  Load (Alt+L) gets a fresh list from Apple.
-  Copy all apps (Alt+A) copies every matching app (all pages, in the sorted order) as
-  text, one line per app; Export to JSON (Alt+E) saves them as a JSON file.
+App info (Alt+O), or Alt+Enter on an app in a list: show what the App Store lists about it (developer, size, rating, what's new, description and more) in a window you can read line by line; Escape closes it.
+Letters in an app list: jump to the next app whose name starts with them; type several letters quickly to match more of the name (current page only).
+Download (Alt+D on the Download page): starts the download and moves you to the Result field, which shows the progress.
+My apps: your apps load the first time you move into the page.
+Search my apps (Alt+S), the availability filter (Alt+I: all apps, available, or no longer on the App Store), the platform filter (Alt+T) and Sort by (Alt+B) work instantly; Enter in any of them moves to the list.
+Search button (Alt+R) in My apps: does the same as Enter in Search my apps.
+Load (Alt+L) in My apps: gets a fresh list from Apple.
+Copy all apps (Alt+A): copies every matching app (all pages, in the sorted order) as text, one line per app.
+Export to JSON (Alt+E): saves every matching app as a JSON file.
 Escape: cancel the task that is running.
 F5: check which account you are signed in with.
 F1: this help.`
@@ -147,7 +141,10 @@ func (g *gui) window() MainWindow {
 			}},
 			Menu{Text: "&Help", Items: []MenuItem{
 				Action{Text: "&Keyboard shortcuts", Shortcut: Shortcut{Key: walk.KeyF1},
-					OnTriggered: func() { g.info("Keyboard shortcuts", shortcutsHelp) }},
+					OnTriggered: func() {
+						g.textWindow("Keyboard shortcuts", "&Shortcuts:", strings.ReplaceAll(shortcutsHelp, "\n", "\r\n"),
+							"Copied the keyboard shortcuts.", nil)
+					}},
 			}},
 		},
 		StatusBarItems: []StatusBarItem{{AssignTo: &g.status, Width: 600}},
