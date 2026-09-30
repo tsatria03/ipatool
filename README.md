@@ -87,7 +87,8 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 ### Features
 
 - Every field, button and list can be read by screen readers such as NVDA, JAWS and Narrator.
-- Sign in with your Apple Account, including two-factor codes, check which account is signed in, and sign out.
+- Sign in with your Apple Account, including two-factor codes, check which account is signed in, and sign out. The Account page only shows what applies: while you're signed in, the Apple ID email and password fields and Log in are hidden; once you're signed out, Log out is. Before the first check (for example when your passphrase isn't saved), everything is shown.
+- Show passphrase (Alt+P) and Show password (Alt+H) check boxes reveal what you typed in the keychain passphrase and Apple ID password fields, so your screen reader can read it back. They start unchecked every time.
 - Global search: search the whole App Store by name and platform, with each result read as its name, version, developer, price and size (in KB, MB or GB, as Apple lists it), for example "Dice Only; Version: 1.12; Developer: Unboxing Solutions B.V.; Price: Free; Size: 40 MB". Send any result straight to the download page, or press App info for the rest.
 - App info: press Alt+O (the App info button) or Alt+Enter on an app in either list to read what the App Store lists about it, such as the developer, size, age rating, rating, release dates, what's new and the description, in a window you can read line by line and copy. See [App info](#app-info).
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
