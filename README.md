@@ -100,7 +100,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Copy all your apps to the clipboard as text, or export them to a JSON file, following the current filters, search and sort. See [The My apps page](#the-my-apps-page).
 - Works with iPhone, iPad, Apple TV, Apple Vision Pro and Mac apps.
 - First-letter navigation in every list: type a letter to jump to the next app whose name starts with it, press it again for the next one, or type several letters quickly to match more of the name. In My apps it searches the page on screen.
-- Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts.
+- Full keyboard control: Ctrl+1 to Ctrl+5 to switch pages, Alt plus the underlined letter for any field or button, Enter to search or download, Escape to cancel, F5 to check your account, and F1 for a list of shortcuts in a read-only text box you can read line by line (one shortcut per line) and copy.
 - Switching pages keeps you on the page tabs, and moving between tabs announces just the tab's name.
 - Clear, plain-language messages when something goes wrong, such as a wrong passphrase or an expired sign-in.
 - A log page that shows everything the interface did, with passwords and codes hidden.
