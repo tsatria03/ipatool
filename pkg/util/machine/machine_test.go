@@ -53,10 +53,14 @@ var _ = Describe("Machine", func() {
 	})
 
 	When("machine has network interfaces", func() {
-		It("returns MAC address of the first interface", func() {
+		It("returns a usable MAC address", func() {
 			res, err := machine.MacAddress()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(ContainSubstring(":"))
+
+			if runtime.GOOS == "darwin" {
+				Expect(res).ToNot(Equal("02:00:00:00:00:00"))
+			}
 		})
 	})
 

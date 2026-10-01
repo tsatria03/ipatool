@@ -1,6 +1,7 @@
 package appstore
 
 import (
+	"errors"
 	"fmt"
 	gohttp "net/http"
 	"net/url"
@@ -76,6 +77,7 @@ type bagResult struct {
 
 type urlBag struct {
 	AuthEndpoint         string `plist:"authenticateAccount,omitempty"`
+	EntDownloadEndpoint  string `plist:"volumeStoreDownloadProduct,omitempty"`
 	RedownloadEndpoint   string `plist:"redownloadProduct,omitempty"`
 	UpdateEndpoint       string `plist:"updateProduct,omitempty"`
 	SAPSetupEndpoint     string `plist:"sign-sap-setup,omitempty"`
@@ -111,18 +113,19 @@ func validateSAPConfig(config SAPConfig) error {
 }
 
 func validateAuthenticationEndpoint(endpoint string) error {
-	parsed, err := url.ParseRequestURI(endpoint)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
-		return fmt.Errorf("invalid authentication endpoint %q", endpoint)
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
+		parsed.Fragment != "" || parsed.RawPath != "" || (parsed.Port() != "" && parsed.Port() != "443") {
+		return errors.New("invalid authentication endpoint")
 	}
 
 	host := strings.ToLower(parsed.Hostname())
 	if host != PrivateAppStoreAPIDomain && !strings.HasSuffix(host, "-buy.itunes.apple.com") {
-		return fmt.Errorf("unsupported authentication endpoint %q", endpoint)
+		return errors.New("unsupported authentication endpoint")
 	}
 
-	if parsed.Path != PrivateAppStoreAPIPathAuth {
-		return fmt.Errorf("unsupported authentication endpoint %q", endpoint)
+	if parsed.Path != PrivateAppStoreAPIPathAuth && parsed.Path != PrivateAppStoreAPIPathAuth+"/" {
+		return errors.New("unsupported authentication endpoint")
 	}
 
 	return nil
