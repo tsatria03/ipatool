@@ -286,7 +286,9 @@ func (g *gui) chooseVersion() {
 	_ = list.SetFocus()
 
 	g.runTask(fmt.Sprintf("list versions of %s (%s)", target, platform), "Loading version list.",
-		func(ctx context.Context, b *backend) (any, error) { return b.listVersions(target, appID, platform) },
+		func(ctx context.Context, b *backend) (any, error) {
+			return b.listVersions(ctx, target, appID, platform)
+		},
 		func(result any, err error) {
 			if closed {
 				return

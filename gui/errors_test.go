@@ -49,20 +49,22 @@ func TestErrorText(t *testing.T) {
 // doesn't own. Methods the download path doesn't use panic (nil embedded interface).
 type fakeStore struct {
 	appstore.AppStore
-	price      float64
-	owned      bool
-	removed    bool // left the App Store: the lookup service no longer knows it
-	purchases  int
-	downloaded appstore.App
+	price        float64
+	owned        bool
+	removed      bool // left the App Store: the lookup service no longer knows it
+	purchases    int
+	accountReads int
+	downloaded   appstore.App
 }
 
 func (f *fakeStore) AccountInfo() (appstore.AccountInfoOutput, error) {
+	f.accountReads++
 	return appstore.AccountInfoOutput{Account: appstore.Account{Email: "a@example.com"}}, nil
 }
 
 func (f *fakeStore) Lookup(appstore.LookupInput) (appstore.LookupOutput, error) {
 	if f.removed {
-		return appstore.LookupOutput{}, errors.New("app not found") // what the real engine returns
+		return appstore.LookupOutput{}, appstore.ErrAppNotFound // what the real engine returns
 	}
 	return appstore.LookupOutput{App: appstore.App{ID: 1, BundleID: "com.example.app", Price: f.price}}, nil
 }
@@ -146,6 +148,10 @@ func TestDownloadLicenseRules(t *testing.T) {
 		}
 		if tt.wantErr == nil && !res.purchased {
 			t.Errorf("%s: expected purchased=true", tt.name)
+		}
+		// Like cmd/download.go: the account is read once, not on every attempt.
+		if store.accountReads != 1 {
+			t.Errorf("%s: account read %d times, want 1", tt.name, store.accountReads)
 		}
 	}
 }

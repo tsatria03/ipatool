@@ -225,15 +225,21 @@ type downloadResult struct {
 	renameErr error // the file couldn't be given its iTunes-style name (it keeps ipatool's)
 }
 
-// download is `ipatool download`, following cmd/download.go: up to 3 attempts,
-// signing in again when the password token expired and obtaining a license when
-// one is required (if allowed), then copying the license data (sinf) into the
+// download is `ipatool download`, following cmd/download.go: the account is read
+// once, then up to 3 attempts, signing in again when the password token expired
+// (the new login is kept for later attempts) and obtaining a license when one
+// is required (if allowed), then copying the license data (sinf) into the
 // package. progress receives the download progress; ctx cancels it.
 func (b *backend) download(ctx context.Context, req downloadRequest, progress *progressbar.ProgressBar) (downloadResult, error) {
 	platform, err := appstore.ParsePlatform(req.platform)
 	if err != nil {
 		return downloadResult{}, err
 	}
+	info, err := b.store.AccountInfo()
+	if err != nil {
+		return downloadResult{}, err
+	}
+	acc := info.Account
 	var lastErr error
 	var app appstore.App // kept outside the attempt so its price can be checked on failure
 	priceKnown := false  // app came from the lookup service, which includes the price
@@ -241,11 +247,6 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 	purchaseRequired, purchased := false, false
 	for attempt := 1; ; attempt++ {
 		path, err := func() (string, error) {
-			info, err := b.store.AccountInfo()
-			if err != nil {
-				return "", err
-			}
-			acc := info.Account
 			if errors.Is(lastErr, appstore.ErrPasswordTokenExpired) {
 				login, err := b.store.Login(appstore.LoginInput{Email: acc.Email, Password: acc.Password})
 				if err != nil {
@@ -330,7 +331,7 @@ func (b *backend) resolveApp(acc appstore.Account, target string, appID int64, p
 	}
 	lookup, err := b.store.Lookup(appstore.LookupInput{Account: acc, BundleID: target, Platform: platform})
 	if err != nil {
-		if appID != 0 && strings.Contains(err.Error(), "app not found") {
+		if appID != 0 && errors.Is(err, appstore.ErrAppNotFound) {
 			return appstore.App{ID: appID, BundleID: target}, false, nil // the bundle ID keeps the file name readable
 		}
 		return appstore.App{}, false, err
@@ -339,8 +340,8 @@ func (b *backend) resolveApp(acc appstore.Account, target string, appID int64, p
 }
 
 // listVersions is `ipatool list-versions`: the app's external version IDs, oldest first.
-// appID is the target's app ID if known (see resolveApp).
-func (b *backend) listVersions(target string, appID int64, platform string) ([]string, error) {
+// appID is the target's app ID if known (see resolveApp); ctx cancels it.
+func (b *backend) listVersions(ctx context.Context, target string, appID int64, platform string) ([]string, error) {
 	p, err := appstore.ParsePlatform(platform)
 	if err != nil {
 		return nil, err
@@ -351,7 +352,7 @@ func (b *backend) listVersions(target string, appID int64, platform string) ([]s
 		if err != nil {
 			return err
 		}
-		out, err := b.store.ListVersions(appstore.ListVersionsInput{Account: acc, App: app, Platform: p})
+		out, err := b.store.ListVersions(appstore.ListVersionsInput{Context: ctx, Account: acc, App: app, Platform: p})
 		if err != nil {
 			return err
 		}
