@@ -216,7 +216,7 @@ The Download page can install an `.ipa` on an iPhone, iPad or iPod touch connect
 What happens when you install:
 
 1. The GUI reads the app's main program inside the `.ipa` and checks its code signature (see [App signing](#app-signing)), reads which Apple ID downloaded it (from the `.ipa`'s `iTunesMetadata.plist`), then looks for the phone.
-2. If the app is 32-bit only, has an old signature that newer iOS versions refuse, or was downloaded with a different Apple ID than the one you're signed in with, you're warned and asked "Install anyway?" (No is the default). These warnings come before anything about the phone, so you can answer them with no phone connected. The other Apple ID is never shown or logged. Apps with no Apple ID in them, such as ones you built yourself, and checks while you're signed out, give no Apple ID warning.
+2. If the app is 32-bit only, has an old signature that newer iOS versions refuse, isn't signed for any phone (like a game you built yourself, see below), or was downloaded with a different Apple ID than the one you're signed in with, you're warned and asked "Install anyway?" (No is the default). These warnings come before anything about the phone, so you can answer them with no phone connected. The other Apple ID is never shown or logged. Apps with no Apple ID in them, such as ones you built yourself, and checks while you're signed out, give no Apple ID warning.
 3. A phone that hasn't trusted this computer yet shows its "Trust this computer?" prompt; tap Trust and install again.
 4. If more than one device is connected, a list asks which one.
 5. The app is sent to the phone, with the progress in the Result field and status bar: first how much has been sent, such as "Sending to Alex's iPhone: 45 percent, 120 of 260 MB.", then the phone's own install stages, such as "Installing on Alex's iPhone: 40 percent, checking the app's signature." Escape cancels; if the phone already has the whole file, it may still finish installing.
@@ -233,6 +233,7 @@ What happens when you install:
 - **Some old versions are refused.** iOS checks the signature's format, and newer iOS versions refuse some old ones with "The code signature version is no longer supported." The year an app was built doesn't decide it: Apple has signed some old apps again later. The GUI warns you before trying.
 - **32-bit apps can't run.** iPhones haven't run 32-bit apps since iOS 11.
 - **Never re-sign App Store apps.** Tools such as Sideloadly re-sign apps with your own certificate. The app then installs, but iOS can't unlock its encrypted code and it crashes as soon as it opens.
+- **Apps you build yourself must be signed first.** An `.ipa` made with a game engine such as NVGT isn't signed for any phone, and the phone refuses it ("No code signature found", error 0xe800801c). The GUI recognizes such apps (not encrypted, no provisioning profile) and says "This app isn't signed for your iPhone" before sending anything. Sign them with Sideloadly or AltStore (free Apple Account, 7 days) or with a paid developer account; a signed `.ipa` with a provisioning profile for your phone can then be installed here. This is the opposite of App Store apps: for your own apps, signing is required.
 - **Deleting an app erases its data.** If you delete an app from the phone to install a different version, its saved data, such as game progress, is deleted with it.
 
 ### App signing
@@ -322,7 +323,7 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `install_test.go` | Tests for the install error messages and stages |
 | `zipsend.go` | Streams an `.ipa` to the phone in its zip format, counting what's been sent, and reads the phone's progress |
 | `zipsend_test.go` | Tests the stream format, the sending progress and the phone's progress answers, including a refusal |
-| `signature.go` | Reads an app's code signature and downloading Apple ID, to warn about 32-bit apps, old signatures and other accounts' apps |
+| `signature.go` | Reads an app's code signature, encryption, provisioning profile and downloading Apple ID, to warn about 32-bit apps, old signatures, apps not signed for any phone and other accounts' apps |
 | `signature_test.go` | Tests the signature check on small made-up programs and broken files |
 | `filenames.go` | iTunes-style file names for downloads, made safe for Windows |
 | `filenames_test.go` | Tests for the file names, shortening and replacing |
