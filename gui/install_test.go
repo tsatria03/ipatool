@@ -27,7 +27,7 @@ func TestInstallErrorText(t *testing.T) {
 		{errors.New("original error: 'DeviceOSVersionTooLow' errorDescription:'x'"), "newer iOS version"},
 		{errors.New("original error: 'IncorrectArchitecture' errorDescription:'x'"), "32-bit only"},
 		{errors.New("original error: 'ApplicationVerificationFailed' errorDescription:'0xe8008017'"), "may be damaged"},
-		// The real refusal from iOS 27 for Classic Stand, an unsigned NVGT game.
+		// The real refusal from iOS 27 for an unsigned, self-built game.
 		{errors.New("your app is not properly signed for this device, check your codesigning and provisioningprofile. " +
 			"original error: 'ApplicationVerificationFailed' errorDescription:'Failed to verify code signature of " +
 			"/var/installd/Library/Caches/com.apple.mobile.installd.staging/temp.jLCLFR/extracted/Payload/ClassicStand.app : " +

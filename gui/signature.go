@@ -48,7 +48,8 @@ type signatureInfo struct {
 }
 
 // msgNotSigned explains apps that aren't signed for any phone, such as games
-// built with NVGT. The phone refuses them ("No code signature found").
+// from an engine that doesn't sign them. The phone refuses them ("No code
+// signature found").
 const msgNotSigned = "This app isn't signed for your iPhone. Apps you build yourself must be signed first, " +
 	"for example with Sideloadly."
 

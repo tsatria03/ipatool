@@ -40,7 +40,7 @@ func fakeProgram(arm64 bool, signature []byte) []byte {
 }
 
 // fakeProgramWith is fakeProgram with the encryption chosen; self-built apps,
-// such as NVGT games, have cryptid 0.
+// such as games from an engine that doesn't sign them, have cryptid 0.
 func fakeProgramWith(arm64 bool, signature []byte, encrypted bool) []byte {
 	le := binary.LittleEndian
 	headerSize := 28
@@ -165,7 +165,7 @@ func TestCheckSignature(t *testing.T) {
 		// Like Blink Pong and RC Boat Simulator.
 		{"32-bit only", fakeProgram(false, fakeSignature(0x20100, sha1)), false, 0x20100, "SHA-1",
 			[]string{"32-bit only", "old signature"}},
-		// Like Classic Stand, an NVGT game: no signature, not encrypted.
+		// Like a game straight out of an engine: no signature, not encrypted.
 		{"self-built, unsigned", fakeProgramWith(true, nil, false), true, 0, "", []string{"isn't signed for your iPhone"}},
 		// Signed, but neither from the App Store nor for any test device.
 		{"self-built, signed for no device", fakeProgramWith(true, fakeSignature(0x20500, sha256), false), true, 0x20500, "SHA-256",
@@ -231,7 +231,7 @@ func TestSignatureAppleID(t *testing.T) {
 	itunesMeta := []byte(`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>
 <key>com.apple.iTunesStore.downloadInfo</key><dict><key>accountInfo</key><dict>
 <key>AppleID</key><string>friend@example.org</string></dict></dict></dict></plist>`)
-	nvgtMeta := []byte(`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>
+	selfBuiltMeta := []byte(`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>
 <key>itemName</key><string>My Game</string><key>product-type</key><string>ios-app</string></dict></plist>`)
 	tests := []struct {
 		name     string
@@ -240,7 +240,7 @@ func TestSignatureAppleID(t *testing.T) {
 	}{
 		{"ipatool download", [][]byte{ipatoolMeta}, "Owner@Example.com"},
 		{"iTunes download", [][]byte{itunesMeta}, "friend@example.org"},
-		{"self-built app", [][]byte{nvgtMeta}, ""},
+		{"self-built app", [][]byte{selfBuiltMeta}, ""},
 		{"no metadata", nil, ""},
 		{"broken metadata", [][]byte{[]byte("not a plist")}, ""},
 	}
