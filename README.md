@@ -215,18 +215,19 @@ The Download page can install an `.ipa` on an iPhone, iPad or iPod touch connect
 
 What happens when you install:
 
-1. The GUI reads the app's main program inside the `.ipa` and checks its code signature (see [App signing](#app-signing)), then looks for the phone. A phone that hasn't trusted this computer yet shows its "Trust this computer?" prompt; tap Trust and install again.
-2. If the app is 32-bit only, or has an old signature that newer iOS versions refuse, you're warned and asked "Install anyway?" (No is the default).
-3. If more than one device is connected, a list asks which one.
-4. The app is sent to the phone, with the progress in the Result field and status bar: first how much has been sent, such as "Sending to Alex's iPhone: 45 percent, 120 of 260 MB.", then the phone's own install stages, such as "Installing on Alex's iPhone: 40 percent, checking the app's signature." Escape cancels; if the phone already has the whole file, it may still finish installing.
-5. A message says when it's installed, or explains in plain language why not, for example "Your iPhone refused this version. Its signature is too old for your iOS version. Try a newer version of the app."
+1. The GUI reads the app's main program inside the `.ipa` and checks its code signature (see [App signing](#app-signing)), reads which Apple ID downloaded it (from the `.ipa`'s `iTunesMetadata.plist`), then looks for the phone.
+2. If the app is 32-bit only, has an old signature that newer iOS versions refuse, or was downloaded with a different Apple ID than the one you're signed in with, you're warned and asked "Install anyway?" (No is the default). These warnings come before anything about the phone, so you can answer them with no phone connected. The other Apple ID is never shown or logged. Apps with no Apple ID in them, such as ones you built yourself, and checks while you're signed out, give no Apple ID warning.
+3. A phone that hasn't trusted this computer yet shows its "Trust this computer?" prompt; tap Trust and install again.
+4. If more than one device is connected, a list asks which one.
+5. The app is sent to the phone, with the progress in the Result field and status bar: first how much has been sent, such as "Sending to Alex's iPhone: 45 percent, 120 of 260 MB.", then the phone's own install stages, such as "Installing on Alex's iPhone: 40 percent, checking the app's signature." Escape cancels; if the phone already has the whole file, it may still finish installing.
+6. A message says when it's installed, or explains in plain language why not, for example "Your iPhone refused this version. Its signature is too old for your iOS version. Try a newer version of the app."
 
 **How it works:** the `.ipa` is installed exactly as Apple signed it, the way iTunes and Xcode install apps (through the phone's `com.apple.streaming_zip_conduit` service, using [go-ios](https://github.com/danielpaulus/go-ios)). It is never re-signed or changed, so the App Store license inside stays valid. Installing doesn't contact Apple and doesn't use your Apple Account or keychain passphrase; it's only a USB transfer between your computer and your phone.
 
 **Caution:**
 
 - **The phone must know the account that bought the app.** An App Store app is encrypted and can only be opened on a phone that has the keys of the Apple Account that bought it. A phone gets those keys when that Apple Account is signed in on the phone itself (Settings, then Media & Purchases, or the App Store), and keeps them after you sign out. Tested on iOS 27: apps installed this way opened with no password prompt even while the phone was signed out, including an app installed after signing out.
-- **Signing in to ipatool doesn't give a phone those keys.** Signing in here only lets your computer download. On a phone that has never been signed in to the buying account, the apps will most likely not open (untested), so don't expect someone else's downloads to work on your phone, or yours on theirs.
+- **Signing in to ipatool doesn't give a phone those keys.** Signing in here only lets your computer download. On a phone that has never been signed in to the buying account, the apps will most likely not open (untested), so don't expect someone else's downloads to work on your phone, or yours on theirs. Install on iPhone warns you when an app was downloaded with a different Apple ID than the one you're signed in with.
 - **Updates ask for the buying account.** Updating an app from the App Store asks for the password of the Apple Account that bought it.
 - **Don't share accounts.** Apple only allows sharing purchases through Family Sharing. Using someone else's Apple Account to get their apps means knowing their password, can link your devices to their account, and breaks Apple's terms. Each person should download with their own Apple Account.
 - **Some old versions are refused.** iOS checks the signature's format, and newer iOS versions refuse some old ones with "The code signature version is no longer supported." The year an app was built doesn't decide it: Apple has signed some old apps again later. The GUI warns you before trying.
@@ -321,7 +322,7 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `install_test.go` | Tests for the install error messages and stages |
 | `zipsend.go` | Streams an `.ipa` to the phone in its zip format, counting what's been sent, and reads the phone's progress |
 | `zipsend_test.go` | Tests the stream format, the sending progress and the phone's progress answers, including a refusal |
-| `signature.go` | Reads an app's code signature to warn about 32-bit apps and old signatures |
+| `signature.go` | Reads an app's code signature and downloading Apple ID, to warn about 32-bit apps, old signatures and other accounts' apps |
 | `signature_test.go` | Tests the signature check on small made-up programs and broken files |
 | `filenames.go` | iTunes-style file names for downloads, made safe for Windows |
 | `filenames_test.go` | Tests for the file names, shortening and replacing |
