@@ -10,6 +10,7 @@ require (
 	github.com/schollz/progressbar/v3 v3.13.1
 	github.com/tailscale/walk v0.0.0-20260702185836-28b80ea70d3b
 	github.com/tailscale/win v0.0.0-20260619195133-2d76c33a64c1
+	howett.net/plist v1.0.1
 )
 
 require (
@@ -79,7 +80,6 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/retry.v1 v1.0.3 // indirect
-	howett.net/plist v1.0.1 // indirect
 	howett.net/ranger v0.0.0-20171016084633-e2e137620847 // indirect
 	software.sslmate.com/src/go-pkcs12 v0.7.2 // indirect
 )
