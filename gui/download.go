@@ -44,7 +44,8 @@ func (g *gui) downloadTab() TabPage {
 
 	rows := []Widget{}
 	rows = append(rows, labeled("&App (bundle ID or app ID):",
-		LineEdit{AssignTo: &d.app, Accessibility: accessible("&App (bundle ID or app ID):")}, nil)...)
+		LineEdit{AssignTo: &d.app, Accessibility: accessible("&App (bundle ID or app ID):")},
+		PushButton{Text: "Fi&nd App ID", OnClicked: g.findAppID})...)
 	rows = append(rows, labeled("&Platform:",
 		ComboBox{AssignTo: &d.platform, Model: platforms, CurrentIndex: 0, Accessibility: accessible("&Platform:")}, nil)...)
 	rows = append(rows, labeled("&Version ID (leave blank for latest):",

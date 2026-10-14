@@ -267,6 +267,7 @@ var (
 func parseStorePage(page string) (name, developer, price string) {
 	clean := func(s string) string {
 		s = html.UnescapeString(tags.ReplaceAllString(s, " "))
+		s = strings.ReplaceAll(s, "\u00a0", " ") // Apple writes "App Store" with a no-break space
 		s = strings.Trim(s, "‎‏ ")
 		return strings.TrimSpace(spaces.ReplaceAllString(s, " "))
 	}

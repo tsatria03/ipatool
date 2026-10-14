@@ -47,7 +47,7 @@ var fakeCDX = map[string]string{
 // Parts of real saved store pages: apps.apple.com (2019) and itunes.apple.com (2016, 2011).
 const (
 	pageNew = `<html><head><title>
-&#x200E;Heathcote on the App Store</title>
+&#x200E;Heathcote on the App&nbsp;Store</title>
 <script type="application/ld+json">{"@context":"http://schema.org","@type":"SoftwareApplication","name":"Heathcote",
 "author":{"@type":"Person","name":"Fabulae Obscurae, Inc.","url":"https://apps.apple.com/us/developer/fabulae-obscurae-inc/id1050456636"},
 "offers":{"@type":"Offer","price":0,"priceCurrency":"USD"}}</script></head><body>
