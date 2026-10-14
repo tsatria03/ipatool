@@ -94,6 +94,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
 - Downloads are named like iTunes 12.6.5.3 named them, with the app's name and version, such as `Dice Only 1.9.ipa`, instead of ipatool's `bundle.id_appID_version.ipa`. Characters Windows doesn't allow in file names are replaced (`Battle Prime: Modern War` becomes `Battle Prime - Modern War`), very long names are shortened, and downloading the same version again replaces the file.
 - See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
+- Find the App ID of an app that left the App Store and isn't in My apps, by name, from the Internet Archive's saved App Store pages (Apple isn't asked). See [Find App ID](#find-app-id).
 - Install apps on an iPhone or iPad connected by USB, unchanged, like iTunes used to, either with the Install on iPhone button or right after each download. The app's signature is checked first, so you're warned about apps the phone would likely refuse. See [Install on iPhone](#install-on-iphone), including the cautions.
 - Browse the apps your account owns, 100 at a time, each read as its name, version, developer, purchase date and size. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
 - Sort your apps by purchase date, name, bundle ID, developer (A to Z or Z to A) or size (largest or smallest first), or by how long they've been on the App Store.
@@ -203,6 +204,17 @@ Lines Apple has nothing for are left out (this app has no ratings yet; others sh
 - **My apps** already has these details for every app still on the App Store, from the availability check, so App info opens instantly and asks Apple nothing.
 - **Apps that left the App Store** have no details at Apple; the window says so and shows what your purchase history knows (name, version, platforms, purchase date, bundle ID and App ID).
 - **Global search** looks the app up once with Apple's public lookup service (no sign-in), and remembers it until you close the GUI.
+
+### Find App ID
+
+Apple's search only knows apps that are still for sale, so an app that left the App Store can't be found by name in Global search. If it isn't in My apps either (for example a free app Apple dropped from your purchase list), you need its App ID to download it. Find App ID (Alt+N, next to the App field on the Download page) looks for it in the [Wayback Machine](https://web.archive.org), the Internet Archive's collection of saved web pages. Apple is never asked.
+
+1. Type the app's name in App name (if the App field already holds a name, it's filled in) and press Enter or Search.
+2. The GUI turns the name into the form App Store addresses use ("Tony's Game" becomes `tonys-game`) and looks for saved addresses starting with it, in the three forms Apple has used: `apps.apple.com/us/app/`, `itunes.apple.com/us/app/` and `itunes.apple.com/app/`. Every App ID found is listed, exact names first, because one name can belong to several apps.
+3. To confirm which app each ID is, it opens the saved copy of each store page (the first 10, two at a time; Check more does the next 10) and fills in the name, developer and price, for example "Heathcote; Developer: Fabulae Obscurae, Inc.; Price: Free; App ID: 1050456637; saved 2019".
+4. Press Enter on the right one (or Use selected). Its App ID goes into the App field, ready for Download, which also proves your account owns the app.
+
+The Status field explains what happened: nothing found (try fewer words, another spelling or the English name; some apps were never saved), too many matches (type more of the name), or the Internet Archive not answering (try again in a minute). Closing the window stops its search. The search only follows links within the Wayback Machine, so a saved page that redirects to Apple's live store is never opened. Other sites that listed apps, such as AppShopper, AppleVis or AudioGames.net, aren't searched; their saved pages in the Wayback Machine can still be looked through by hand.
 
 ### Install on iPhone
 
@@ -321,6 +333,9 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `installpage.go` | The Download page's Install on iPhone button and check box, and the Choose a device dialog |
 | `install.go` | Finding connected phones, installing over USB, install progress and the install error messages |
 | `install_test.go` | Tests for the install error messages and stages |
+| `findid.go` | Find App ID: searching the Wayback Machine's saved App Store addresses and reading saved store pages |
+| `findidpage.go` | The Find App ID window |
+| `findid_test.go` | Tests for the address names, the search (with real saved answers), page reading, retries and staying within the archive |
 | `zipsend.go` | Streams an `.ipa` to the phone in its zip format, counting what's been sent, and reads the phone's progress |
 | `zipsend_test.go` | Tests the stream format, the sending progress and the phone's progress answers, including a refusal |
 | `signature.go` | Reads an app's code signature, encryption, provisioning profile and downloading Apple ID, to warn about 32-bit apps, old signatures, apps not signed for any phone and other accounts' apps |
