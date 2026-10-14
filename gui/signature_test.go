@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"howett.net/plist"
 )
 
 // fakeSignature builds an embedded signature with one CodeDirectory per hash type.
@@ -85,8 +87,9 @@ func fakeFat(programs ...[]byte) []byte {
 	return data
 }
 
-// fakeIPA writes an .ipa holding Payload/Test.app with the given main program.
-func fakeIPA(t *testing.T, program []byte) string {
+// fakeIPA writes an .ipa holding Payload/Test.app with the given main program,
+// and an iTunesMetadata.plist when metadata is given.
+func fakeIPA(t *testing.T, program []byte, metadata ...[]byte) string {
 	t.Helper()
 	file := filepath.Join(t.TempDir(), "Test 1.0.ipa")
 	out, err := os.Create(file)
@@ -106,6 +109,9 @@ func fakeIPA(t *testing.T, program []byte) string {
 	add("Payload/Test.app/Frameworks/Other.framework/Info.plist", []byte(`<plist version="1.0"><dict/></plist>`))
 	if program != nil {
 		add("Payload/Test.app/TestGame", program)
+	}
+	for _, m := range metadata {
+		add("iTunesMetadata.plist", m)
 	}
 	if err := z.Close(); err != nil {
 		t.Fatal(err)
@@ -170,5 +176,64 @@ func TestCheckSignatureBadFiles(t *testing.T) {
 	}
 	if _, err := checkSignature(fakeIPA(t, []byte("garbage"))); err == nil {
 		t.Error("a program that isn't Mach-O should fail")
+	}
+}
+
+func TestSignatureAppleID(t *testing.T) {
+	program := fakeProgram(true, fakeSignature(0x20500, 2))
+	// ipatool writes a binary plist with apple-id and userName (pkg/appstore writeMetadata).
+	ipatoolMeta, err := plist.Marshal(map[string]any{"apple-id": "Owner@Example.com", "userName": "Owner@Example.com",
+		"itemId": 1050456637}, plist.BinaryFormat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	itunesMeta := []byte(`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>
+<key>com.apple.iTunesStore.downloadInfo</key><dict><key>accountInfo</key><dict>
+<key>AppleID</key><string>friend@example.org</string></dict></dict></dict></plist>`)
+	nvgtMeta := []byte(`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>
+<key>itemName</key><string>My Game</string><key>product-type</key><string>ios-app</string></dict></plist>`)
+	tests := []struct {
+		name     string
+		metadata [][]byte
+		want     string
+	}{
+		{"ipatool download", [][]byte{ipatoolMeta}, "Owner@Example.com"},
+		{"iTunes download", [][]byte{itunesMeta}, "friend@example.org"},
+		{"self-built app", [][]byte{nvgtMeta}, ""},
+		{"no metadata", nil, ""},
+		{"broken metadata", [][]byte{[]byte("not a plist")}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info, err := checkSignature(fakeIPA(t, program, tt.metadata...))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.AppleID != tt.want {
+				t.Errorf("AppleID = %q, want %q", info.AppleID, tt.want)
+			}
+		})
+	}
+}
+
+func TestOtherAppleID(t *testing.T) {
+	tests := []struct {
+		fileID, signedIn string
+		want             bool
+	}{
+		{"owner@example.com", "owner@example.com", false},
+		{"Owner@Example.com", " owner@example.com ", false}, // Apple IDs ignore case
+		{"friend@example.org", "owner@example.com", true},
+		{"", "owner@example.com", false},  // nothing in the file (self-built app)
+		{"friend@example.org", "", false}, // not signed in or not checked yet
+		{"+15555550123", "+15555550123", false},
+	}
+	for _, tt := range tests {
+		if got := otherAppleID(tt.fileID, tt.signedIn); got != tt.want {
+			t.Errorf("otherAppleID(%q, %q) = %v, want %v", tt.fileID, tt.signedIn, got, tt.want)
+		}
+	}
+	if strings.Contains(msgOtherAppleID, "@") {
+		t.Error("the warning must never include an Apple ID")
 	}
 }

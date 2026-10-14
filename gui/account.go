@@ -115,6 +115,9 @@ func (g *gui) login() {
 func (g *gui) setAccountState(state accountState) {
 	a := &g.account
 	signedIn := state == accountSignedIn
+	if !signedIn {
+		g.accountEmail = ""
+	}
 	if signedIn {
 		// Hide the typed password again, so it's hidden when the box comes back.
 		a.showPassword.SetChecked(false)
@@ -182,6 +185,7 @@ func (g *gui) checkAccount(announce bool) {
 }
 
 func (g *gui) showAccount(acc appstore.Account) {
+	g.accountEmail = acc.Email
 	if acc.Email != "" {
 		_ = g.account.status.SetText(fmt.Sprintf("Signed in as %s (%s)", acc.Name, acc.Email))
 	} else {

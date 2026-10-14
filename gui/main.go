@@ -65,6 +65,10 @@ type gui struct {
 
 	tabList win.HWND // the native tab strip inside the TabWidget
 
+	// accountEmail is the signed-in Apple ID as last checked, or "" when signed
+	// out or not checked yet. Install on iPhone compares it with an app's.
+	accountEmail string
+
 	account   accountPage
 	search    searchPage
 	download  downloadPage

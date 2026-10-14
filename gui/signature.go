@@ -37,6 +37,19 @@ type signatureInfo struct {
 	Signed    bool     // the 64-bit part (or the only part) has a code signature
 	CodeDir   uint32   // newest CodeDirectory version in that signature
 	HashTypes []string // hash types in that signature, such as SHA-1 and SHA-256
+	AppleID   string   // the Apple ID that downloaded the app, from iTunesMetadata.plist; "" if none
+}
+
+// msgOtherAppleID warns that an app may not open: the phone needs the keys of
+// the Apple ID that downloaded it.
+const msgOtherAppleID = "This app was downloaded with a different Apple ID. It will only open on your iPhone " +
+	"if that Apple ID has been signed in on it."
+
+// otherAppleID reports whether an app downloaded with fileID belongs to a
+// different account than signedIn. Unknown on either side means no.
+func otherAppleID(fileID, signedIn string) bool {
+	fileID, signedIn = strings.TrimSpace(fileID), strings.TrimSpace(signedIn)
+	return fileID != "" && signedIn != "" && !strings.EqualFold(fileID, signedIn)
 }
 
 // warnings returns plain-language warnings, or nil when nothing looks wrong.
@@ -66,13 +79,15 @@ func checkSignature(file string) (signatureInfo, error) {
 	if err != nil {
 		return signatureInfo{}, err
 	}
-	var data []byte
+	var data, metadata []byte
 	for _, f := range z.File {
-		if f.Name == app+program {
+		switch f.Name {
+		case app + program:
 			if data, err = readZipFile(f); err != nil {
 				return signatureInfo{}, err
 			}
-			break
+		case "iTunesMetadata.plist":
+			metadata, _ = readZipFile(f) // only for the Apple ID; a bad file just means no Apple ID
 		}
 	}
 	if data == nil {
@@ -80,7 +95,36 @@ func checkSignature(file string) (signatureInfo, error) {
 	}
 	info, err := readProgram(data)
 	info.Program = program
+	info.AppleID = metadataAppleID(metadata)
 	return info, err
+}
+
+// metadataAppleID returns the Apple ID recorded in an iTunesMetadata.plist
+// (binary or XML): ipatool writes "apple-id" and "userName"; iTunes keeps it in
+// com.apple.iTunesStore.downloadInfo, accountInfo, AppleID. Self-built apps have
+// none.
+func metadataAppleID(data []byte) string {
+	var meta struct {
+		AppleID      string `plist:"apple-id"`
+		UserName     string `plist:"userName"`
+		DownloadInfo struct {
+			AccountInfo struct {
+				AppleID string `plist:"AppleID"`
+			} `plist:"accountInfo"`
+		} `plist:"com.apple.iTunesStore.downloadInfo"`
+	}
+	if len(data) == 0 {
+		return ""
+	}
+	if _, err := plist.Unmarshal(data, &meta); err != nil {
+		return ""
+	}
+	for _, id := range []string{meta.AppleID, meta.UserName, meta.DownloadInfo.AccountInfo.AppleID} {
+		if id = strings.TrimSpace(id); id != "" {
+			return id
+		}
+	}
+	return ""
 }
 
 // mainProgram finds the app folder (Payload/Name.app/) and the program named in

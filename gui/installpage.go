@@ -34,10 +34,13 @@ func (g *gui) chooseAndInstall() {
 	}
 }
 
-// installCheck is what startInstall finds before installing.
+// installCheck is what startInstall finds before installing. phoneErr is kept
+// apart so warnings about the file come first: answering No to them makes the
+// phone irrelevant.
 type installCheck struct {
 	signature signatureInfo
 	phones    []phone
+	phoneErr  error
 }
 
 // startInstall checks the file and finds the phone, warns about anything the
@@ -53,7 +56,7 @@ func (g *gui) startInstall(file, prefix string) {
 				return nil, err
 			}
 			phones, err := connectedPhones()
-			return installCheck{signature, phones}, err
+			return installCheck{signature, phones, err}, nil
 		},
 		func(result any, err error) {
 			if err != nil {
@@ -61,13 +64,23 @@ func (g *gui) startInstall(file, prefix string) {
 				return
 			}
 			check := result.(installCheck)
-			if w := check.signature.warnings(); len(w) > 0 {
+			w := check.signature.warnings()
+			if otherAppleID(check.signature.AppleID, g.accountEmail) {
+				w = append(w, msgOtherAppleID)
+			}
+			if len(w) > 0 {
 				message := strings.Join(w, "\n\n") + "\n\nInstall anyway?"
 				if walk.MsgBox(g.mw, "Check before installing", message,
 					walk.MsgBoxYesNo|walk.MsgBoxIconWarning|walk.MsgBoxDefButton2) != win.IDYES {
 					_ = d.result.SetText(prefix + "Not installed.")
 					return
 				}
+			}
+			if check.phoneErr != nil {
+				g.log("error: " + check.phoneErr.Error())
+				g.setStatus("Failed.")
+				g.installFailed(prefix, check.phoneErr)
+				return
 			}
 			p := check.phones[0]
 			if len(check.phones) > 1 {
