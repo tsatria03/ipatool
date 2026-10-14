@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"testing"
 )
@@ -41,27 +40,6 @@ func TestInstallErrorText(t *testing.T) {
 		if strings.Contains(strings.ToLower(got), "provisioning") {
 			t.Errorf("installErrorText(%q) = %q, repeats go-ios's misleading provisioning text", tt.err, got)
 		}
-	}
-}
-
-func TestProgressHandler(t *testing.T) {
-	type step struct {
-		percent int
-		stage   string
-	}
-	var got []step
-	logger := slog.New(progressHandler{report: func(percent int, stage string) {
-		got = append(got, step{percent, stage})
-	}})
-	// The records zipconduit writes while the phone installs.
-	logger.Info("installing", "module", "go-ios/zipconduit", "status", "VerifyingApplication", "percentComplete", 40)
-	logger.Info("installing", "module", "go-ios/zipconduit", "status", "InstallComplete", "percentComplete", 100)
-	logger.Info("installation successful", "module", "go-ios/zipconduit")
-	logger.Debug("received progress plist", "plist", map[string]any{})
-
-	want := []step{{40, "Checking the app's signature"}, {100, "Done"}}
-	if fmt.Sprint(got) != fmt.Sprint(want) {
-		t.Errorf("progress = %v, want %v", got, want)
 	}
 }
 

@@ -4,12 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
-	"sync"
 
 	"github.com/danielpaulus/go-ios/ios"
-	"github.com/danielpaulus/go-ios/ios/zipconduit"
 )
 
 // Installing on an iPhone goes over USB through Apple Mobile Device Service
@@ -66,71 +63,56 @@ func connectedPhones() ([]phone, error) {
 	return phones, nil
 }
 
-// installMu allows one install at a time: go-ios reports progress only through
-// its logger, which is shared by the whole program.
-var installMu sync.Mutex
+// installProgress is one progress report: first while the file is sent, then
+// the phone's own install stages.
+type installProgress struct {
+	Sending     bool
+	Percent     int
+	Sent, Total uint64 // bytes, while sending
+	Stage       string // the install stage in plain words, after sending
+}
 
 // installIPA sends the .ipa at path to the phone and waits until the phone has
-// installed it. progress gets the phone's own stages (percent and a short
-// description). Cancelling ctx closes the connection; if the phone has already
-// received the whole file it may still finish installing.
-func installIPA(ctx context.Context, p phone, path string, progress func(percent int, stage string)) error {
-	installMu.Lock()
-	defer installMu.Unlock()
-
-	ios.SetLogger(slog.New(progressHandler{report: progress}))
-	defer ios.SetLogger(nil)
-
-	conn, err := zipconduit.New(p.entry)
+// installed it, reporting progress whenever the percentage changes. Cancelling
+// ctx closes the connection; if the phone has already received the whole file
+// it may still finish installing.
+func installIPA(ctx context.Context, p phone, path string, progress func(installProgress)) error {
+	conn, err := ios.ConnectToService(p.entry, zipConduitService)
 	if err != nil {
 		return err
 	}
-	done := make(chan error, 1)
-	go func() { done <- conn.SendFile(path) }()
+	report := func(r installProgress) {
+		if progress != nil {
+			progress(r)
+		}
+	}
+	lastPercent := -1
+	sent := func(done, total uint64) {
+		percent := 100
+		if total > 0 {
+			percent = int(done * 100 / total)
+		}
+		if percent != lastPercent {
+			lastPercent = percent
+			report(installProgress{Sending: true, Percent: percent, Sent: done, Total: total})
+		}
+	}
+	stage := func(percent int, status string) {
+		report(installProgress{Percent: percent, Stage: installStage(status)})
+	}
+
+	result := make(chan error, 1)
+	go func() { result <- sendIPA(conn, path, sent, stage) }()
 	select {
-	case err := <-done:
+	case err := <-result:
 		conn.Close()
 		return err
 	case <-ctx.Done():
 		conn.Close()
-		<-done
+		<-result
 		return ctx.Err()
 	}
 }
-
-// progressHandler picks go-ios's "installing" log records, which carry the
-// phone's progress, and drops all other logging.
-type progressHandler struct {
-	report func(percent int, stage string)
-}
-
-func (h progressHandler) Enabled(context.Context, slog.Level) bool { return true }
-
-func (h progressHandler) Handle(_ context.Context, r slog.Record) error {
-	if h.report == nil || r.Message != "installing" {
-		return nil
-	}
-	var status string
-	percent := -1
-	r.Attrs(func(a slog.Attr) bool {
-		switch a.Key {
-		case "status":
-			status = a.Value.String()
-		case "percentComplete":
-			if a.Value.Kind() == slog.KindInt64 {
-				percent = int(a.Value.Int64())
-			}
-		}
-		return true
-	})
-	if percent >= 0 {
-		h.report(percent, installStage(status))
-	}
-	return nil
-}
-
-func (h progressHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
-func (h progressHandler) WithGroup(string) slog.Handler      { return h }
 
 // installStage puts the phone's install stages into plain words.
 func installStage(status string) string {

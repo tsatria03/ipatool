@@ -89,17 +89,17 @@ func (g *gui) startInstall(file, prefix string) {
 func (g *gui) install(file string, p phone, prefix string) {
 	d := &g.download
 	name := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
-	percent := 0
+	percent, sending := 0, false
 	_ = d.result.SetText(prefix + fmt.Sprintf("Sending %s to %s.", name, p.Name))
 	g.runLocalTask(fmt.Sprintf("install %s on %s", file, p), "Installing on iPhone.",
 		func(ctx context.Context) (any, error) {
-			return nil, installIPA(ctx, p, file, func(pc int, stage string) {
+			return nil, installIPA(ctx, p, file, func(r installProgress) {
 				g.app.Synchronize(func() {
 					if !g.busy {
 						return
 					}
-					percent = pc
-					_ = d.result.SetText(prefix + fmt.Sprintf("Installing on %s: %d percent, %s.", p.Name, pc, strings.ToLower(stage)))
+					percent, sending = r.Percent, r.Sending
+					_ = d.result.SetText(prefix + installProgressText(p.Name, r))
 				})
 			})
 		},
@@ -118,9 +118,32 @@ func (g *gui) install(file string, p phone, prefix string) {
 			if percent == 0 {
 				return ""
 			}
+			if sending {
+				return fmt.Sprintf("sending, %d percent", percent)
+			}
 			return fmt.Sprintf("%d percent", percent)
 		}
 	}
+}
+
+// installProgressText describes install progress for the Result field, for
+// example "Sending to Alex's iPhone: 45 percent, 120 of 260 MB." and then
+// "Installing on Alex's iPhone: 40 percent, checking the app's signature."
+func installProgressText(phoneName string, r installProgress) string {
+	if r.Sending {
+		return fmt.Sprintf("Sending to %s: %d percent, %s of %s MB.", phoneName, r.Percent,
+			megabytes(r.Sent), megabytes(r.Total))
+	}
+	return fmt.Sprintf("Installing on %s: %d percent, %s.", phoneName, r.Percent, strings.ToLower(r.Stage))
+}
+
+// megabytes formats a size in whole MB, or with one decimal below 10 MB.
+func megabytes(bytes uint64) string {
+	mb := float64(bytes) / 1e6
+	if mb < 10 {
+		return fmt.Sprintf("%.1f", mb)
+	}
+	return fmt.Sprintf("%.0f", mb)
 }
 
 func (g *gui) installFailed(prefix string, err error) {
