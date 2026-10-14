@@ -21,6 +21,8 @@ import (
 
 const (
 	loadCodeSignature = 0x1d       // LC_CODE_SIGNATURE
+	loadEncryption    = 0x21       // LC_ENCRYPTION_INFO
+	loadEncryption64  = 0x2c       // LC_ENCRYPTION_INFO_64
 	magicSuperBlob    = 0xfade0cc0 // CSMAGIC_EMBEDDED_SIGNATURE
 	magicCodeDir      = 0xfade0c02 // CSMAGIC_CODEDIRECTORY
 
@@ -38,7 +40,17 @@ type signatureInfo struct {
 	CodeDir   uint32   // newest CodeDirectory version in that signature
 	HashTypes []string // hash types in that signature, such as SHA-1 and SHA-256
 	AppleID   string   // the Apple ID that downloaded the app, from iTunesMetadata.plist; "" if none
+	// Encrypted is true for App Store apps: FairPlay encrypts their main program.
+	Encrypted bool
+	// HasProfile is true when the app carries a provisioning profile
+	// (embedded.mobileprovision), which builds signed for test devices need.
+	HasProfile bool
 }
+
+// msgNotSigned explains apps that aren't signed for any phone, such as games
+// built with NVGT. The phone refuses them ("No code signature found").
+const msgNotSigned = "This app isn't signed for your iPhone. Apps you build yourself, like NVGT games, " +
+	"must be signed first, for example with Sideloadly."
 
 // msgOtherAppleID warns that an app may not open: the phone needs the keys of
 // the Apple ID that downloaded it.
@@ -59,8 +71,10 @@ func (s signatureInfo) warnings() []string {
 		w = append(w, "This app is 32-bit only. iPhones can't run 32-bit apps since iOS 11.")
 	}
 	switch {
-	case !s.Signed:
-		w = append(w, "This app has no signature, so your iPhone will probably refuse it.")
+	case !s.Signed, !s.Encrypted && !s.HasProfile:
+		// Not from the App Store and not signed for any test device: built by
+		// someone and never signed for a phone (or signed only for a Mac).
+		w = append(w, msgNotSigned)
 	case s.CodeDir < minCodeDirVersion:
 		w = append(w, "This app has an old signature. Newer iOS versions refuse some old signatures, so your iPhone may refuse it.")
 	}
@@ -80,8 +94,11 @@ func checkSignature(file string) (signatureInfo, error) {
 		return signatureInfo{}, err
 	}
 	var data, metadata []byte
+	hasProfile := false
 	for _, f := range z.File {
 		switch f.Name {
+		case app + "embedded.mobileprovision":
+			hasProfile = true
 		case app + program:
 			if data, err = readZipFile(f); err != nil {
 				return signatureInfo{}, err
@@ -96,6 +113,7 @@ func checkSignature(file string) (signatureInfo, error) {
 	info, err := readProgram(data)
 	info.Program = program
 	info.AppleID = metadataAppleID(metadata)
+	info.HasProfile = hasProfile
 	return info, err
 }
 
@@ -203,7 +221,16 @@ func readSlice(f *macho.File, slice []byte) (signatureInfo, error) {
 	info := signatureInfo{Has64Bit: f.Cpu == macho.CpuArm64}
 	for _, l := range f.Loads {
 		raw := l.Raw()
-		if len(raw) < 16 || f.ByteOrder.Uint32(raw) != loadCodeSignature {
+		if len(raw) < 16 {
+			continue
+		}
+		switch f.ByteOrder.Uint32(raw) {
+		case loadEncryption, loadEncryption64:
+			// cryptoff, cryptsize, then cryptid: 0 means not encrypted.
+			info.Encrypted = len(raw) >= 20 && f.ByteOrder.Uint32(raw[16:]) != 0
+			continue
+		case loadCodeSignature:
+		default:
 			continue
 		}
 		off, size := f.ByteOrder.Uint32(raw[8:]), f.ByteOrder.Uint32(raw[12:])

@@ -27,6 +27,13 @@ func TestInstallErrorText(t *testing.T) {
 		{errors.New("original error: 'DeviceOSVersionTooLow' errorDescription:'x'"), "newer iOS version"},
 		{errors.New("original error: 'IncorrectArchitecture' errorDescription:'x'"), "32-bit only"},
 		{errors.New("original error: 'ApplicationVerificationFailed' errorDescription:'0xe8008017'"), "may be damaged"},
+		// The real refusal from iOS 27 for Classic Stand, an unsigned NVGT game.
+		{errors.New("your app is not properly signed for this device, check your codesigning and provisioningprofile. " +
+			"original error: 'ApplicationVerificationFailed' errorDescription:'Failed to verify code signature of " +
+			"/var/installd/Library/Caches/com.apple.mobile.installd.staging/temp.jLCLFR/extracted/Payload/ClassicStand.app : " +
+			"0xe800801c (No code signature found.)'"), "isn't signed for your iPhone"},
+		{errors.New("the phone refused the app: 'ApplicationVerificationFailed' errorDescription:'Failed to verify code signature of x : " +
+			"0xe8008015 (A valid provisioning profile for this executable was not found.)'"), "isn't signed for your iPhone"},
 		{errors.New("zip: not a valid zip file"), "isn't a complete .ipa"},
 		{errors.New("open x.ipa: The system cannot find the file specified."), "wasn't found"},
 		{errors.New("write tcp: An existing connection was forcibly closed by the remote host."), "connection to your iPhone was lost"},

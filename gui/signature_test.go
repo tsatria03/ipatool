@@ -32,18 +32,25 @@ func fakeSignature(version uint32, hashTypes ...byte) []byte {
 	return blob
 }
 
-// fakeProgram builds a minimal one-architecture Mach-O program with an optional
-// code signature. arm64 is 64-bit; anything else is a 32-bit armv7 program.
+// fakeProgram builds a minimal one-architecture Mach-O program like an App
+// Store download: FairPlay-encrypted, with an optional code signature. arm64 is
+// 64-bit; anything else is a 32-bit armv7 program.
 func fakeProgram(arm64 bool, signature []byte) []byte {
+	return fakeProgramWith(arm64, signature, true)
+}
+
+// fakeProgramWith is fakeProgram with the encryption chosen; self-built apps,
+// such as NVGT games, have cryptid 0.
+func fakeProgramWith(arm64 bool, signature []byte, encrypted bool) []byte {
 	le := binary.LittleEndian
 	headerSize := 28
-	magic, cpu := uint32(0xfeedface), uint32(12) // MH_MAGIC, CPU_TYPE_ARM
+	magic, cpu, encCmd, encSize := uint32(0xfeedface), uint32(12), uint32(loadEncryption), 20 // MH_MAGIC, CPU_TYPE_ARM
 	if arm64 {
-		headerSize, magic, cpu = 32, 0xfeedfacf, 0x0100000c
+		headerSize, magic, cpu, encCmd, encSize = 32, 0xfeedfacf, 0x0100000c, loadEncryption64, 24
 	}
-	ncmds, cmdsSize := 0, 0
+	ncmds, cmdsSize := 1, encSize
 	if signature != nil {
-		ncmds, cmdsSize = 1, 16
+		ncmds, cmdsSize = 2, encSize+16
 	}
 	data := make([]byte, headerSize+cmdsSize)
 	le.PutUint32(data, magic)
@@ -51,8 +58,14 @@ func fakeProgram(arm64 bool, signature []byte) []byte {
 	le.PutUint32(data[12:], 2) // MH_EXECUTE
 	le.PutUint32(data[16:], uint32(ncmds))
 	le.PutUint32(data[20:], uint32(cmdsSize))
+	enc := data[headerSize:]
+	le.PutUint32(enc, encCmd)
+	le.PutUint32(enc[4:], uint32(encSize))
+	if encrypted {
+		le.PutUint32(enc[16:], 1) // cryptid
+	}
 	if signature != nil {
-		cmd := data[headerSize:]
+		cmd := data[headerSize+encSize:]
 		le.PutUint32(cmd, loadCodeSignature)
 		le.PutUint32(cmd[4:], 16)
 		le.PutUint32(cmd[8:], uint32(len(data)))
@@ -87,9 +100,21 @@ func fakeFat(programs ...[]byte) []byte {
 	return data
 }
 
+// ipaFile is an extra file for fakeIPA.
+type ipaFile struct {
+	name string
+	data []byte
+}
+
+// withProfile adds a provisioning profile, as test builds and sideloaded apps have.
+var withProfile = ipaFile{"Payload/Test.app/embedded.mobileprovision", []byte("profile")}
+
+// withMetadata adds an iTunesMetadata.plist.
+func withMetadata(data []byte) ipaFile { return ipaFile{"iTunesMetadata.plist", data} }
+
 // fakeIPA writes an .ipa holding Payload/Test.app with the given main program,
-// and an iTunesMetadata.plist when metadata is given.
-func fakeIPA(t *testing.T, program []byte, metadata ...[]byte) string {
+// plus any extra files.
+func fakeIPA(t *testing.T, program []byte, extra ...ipaFile) string {
 	t.Helper()
 	file := filepath.Join(t.TempDir(), "Test 1.0.ipa")
 	out, err := os.Create(file)
@@ -110,8 +135,8 @@ func fakeIPA(t *testing.T, program []byte, metadata ...[]byte) string {
 	if program != nil {
 		add("Payload/Test.app/TestGame", program)
 	}
-	for _, m := range metadata {
-		add("iTunesMetadata.plist", m)
+	for _, f := range extra {
+		add(f.name, f.data)
 	}
 	if err := z.Close(); err != nil {
 		t.Fatal(err)
@@ -140,7 +165,11 @@ func TestCheckSignature(t *testing.T) {
 		// Like Blink Pong and RC Boat Simulator.
 		{"32-bit only", fakeProgram(false, fakeSignature(0x20100, sha1)), false, 0x20100, "SHA-1",
 			[]string{"32-bit only", "old signature"}},
-		{"unsigned", fakeProgram(true, nil), true, 0, "", []string{"no signature"}},
+		// Like Classic Stand, an NVGT game: no signature, not encrypted.
+		{"self-built, unsigned", fakeProgramWith(true, nil, false), true, 0, "", []string{"isn't signed for your iPhone"}},
+		// Signed, but neither from the App Store nor for any test device.
+		{"self-built, signed for no device", fakeProgramWith(true, fakeSignature(0x20500, sha256), false), true, 0x20500, "SHA-256",
+			[]string{"isn't signed for your iPhone"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -162,6 +191,18 @@ func TestCheckSignature(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCheckSignatureTestBuild(t *testing.T) {
+	// A developer's test build: signed, not encrypted, with a provisioning profile.
+	file := fakeIPA(t, fakeProgramWith(true, fakeSignature(0x20500, 2), false), withProfile)
+	info, err := checkSignature(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.HasProfile || info.Encrypted || len(info.warnings()) != 0 {
+		t.Errorf("got %+v, warnings %q", info, info.warnings())
 	}
 }
 
@@ -205,7 +246,11 @@ func TestSignatureAppleID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			info, err := checkSignature(fakeIPA(t, program, tt.metadata...))
+			var extra []ipaFile
+			for _, m := range tt.metadata {
+				extra = append(extra, withMetadata(m))
+			}
+			info, err := checkSignature(fakeIPA(t, program, extra...))
 			if err != nil {
 				t.Fatal(err)
 			}

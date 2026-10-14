@@ -169,6 +169,8 @@ func installErrorText(err error) string {
 		return "This app is 32-bit only. iPhones can't run 32-bit apps since iOS 11."
 	case has("insufficient", "no space left", "enospc", "diskfull"):
 		return "Your iPhone doesn't have enough free space for this app. Free up some space and try again."
+	case has("0xe800801c", "no code signature found", "0xe8008015", "valid provisioning profile"):
+		return msgNotSigned
 	case has("applicationverificationfailed"):
 		return "Your iPhone couldn't verify this app's signature. The file may be damaged; download it again."
 	case has("not a valid zip file", "zip: "):
