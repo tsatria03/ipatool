@@ -228,6 +228,8 @@ func (g *gui) persist() {
 	s := Settings{
 		Email:  strings.TrimSpace(g.account.email.Text()),
 		Output: strings.TrimSpace(g.download.output.Text()),
+
+		InstallAfterDownload: g.download.installAfter.Checked(),
 	}
 	if g.account.remember.Checked() {
 		s.Passphrase = g.account.passphrase.Text()

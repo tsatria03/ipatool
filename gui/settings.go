@@ -15,6 +15,8 @@ type Settings struct {
 	Email      string `json:"email"`
 	Output     string `json:"output"`
 	Passphrase string `json:"passphrase"`
+	// InstallAfterDownload installs each download on the connected iPhone.
+	InstallAfterDownload bool `json:"installAfterDownload,omitempty"`
 }
 
 func settingsPath() string {

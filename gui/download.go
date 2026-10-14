@@ -19,7 +19,10 @@ import (
 type downloadPage struct {
 	app, version, output, result *walk.LineEdit
 	platform                     *walk.ComboBox
-	purchase                     *walk.CheckBox
+	purchase, installAfter       *walk.CheckBox
+	// lastFile is the .ipa downloaded last this session, offered first by
+	// Install on iPhone.
+	lastFile string
 	// knownIDs maps bundle IDs sent from a list to their app IDs, so apps that
 	// left the App Store (unknown to the bundle ID lookup) still download.
 	knownIDs map[string]int64
@@ -57,8 +60,10 @@ func (g *gui) downloadTab() TabPage {
 		Children: []Widget{
 			Composite{Layout: Grid{Columns: 3, MarginsZero: true}, Children: rows},
 			CheckBox{AssignTo: &d.purchase, Text: "&Get a free license if needed (free apps only)", Checked: true},
+			CheckBox{AssignTo: &d.installAfter, Text: "Install on iPhone after do&wnload", Checked: g.settings.InstallAfterDownload},
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 				PushButton{Text: "&Download", OnClicked: g.startDownload},
+				PushButton{Text: "&Install on iPhone", OnClicked: g.chooseAndInstall},
 				PushButton{Text: "&Open folder", OnClicked: g.openOutputFolder},
 				HSpacer{},
 			}},
@@ -126,8 +131,14 @@ func (g *gui) startDownload() {
 				g.log("rename failed: " + r.renameErr.Error())
 				extra += " It couldn't be renamed to the app's name; close any program using a file with that name and download again."
 			}
-			_ = d.result.SetText(fmt.Sprintf("Saved to %s.%s", r.path, extra))
-			g.info("Download finished", d.result.Text())
+			d.lastFile = r.path
+			saved := fmt.Sprintf("Saved to %s.%s", r.path, extra)
+			_ = d.result.SetText(saved)
+			if d.installAfter.Checked() {
+				g.startInstall(r.path, saved+" ")
+				return
+			}
+			g.info("Download finished", saved)
 		})
 	if g.busy { // the task started
 		// Screen readers read the Result field, and Windows brings focus back to
