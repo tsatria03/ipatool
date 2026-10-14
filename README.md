@@ -82,7 +82,7 @@ $ go test -v ./...
 
 ## Accessible GUI
 
-The `gui` folder contains a Windows front end for ipatool, written in Go with [walk](https://github.com/tailscale/walk) (Tailscale's maintained fork). walk builds windows from native Win32 controls, which screen readers can read through MSAA. The GUI is its own Go module (`ipatool-gui`), so ipatool's `go.mod` and code are untouched, and it uses ipatool's engine directly, so `ipatool-gui.exe` is a single standalone program (about 42 MB).
+The `gui` folder contains a Windows front end for ipatool, written in Go with [walk](https://github.com/tailscale/walk) (Tailscale's maintained fork). walk builds windows from native Win32 controls, which screen readers can read through MSAA. The GUI is its own Go module (`ipatool-gui`), so ipatool's `go.mod` and code are untouched, and it uses ipatool's engine directly, so `ipatool-gui.exe` is a single standalone program (about 44 MB).
 
 ### Features
 
@@ -94,6 +94,7 @@ The `gui` folder contains a Windows front end for ipatool, written in Go with [w
 - Download the latest version of an app, or pick an older version from a list that shows each version number and release date.
 - Downloads are named like iTunes 12.6.5.3 named them, with the app's name and version, such as `Dice Only 1.9.ipa`, instead of ipatool's `bundle.id_appID_version.ipa`. Characters Windows doesn't allow in file names are replaced (`Battle Prime: Modern War` becomes `Battle Prime - Modern War`), very long names are shortened, and downloading the same version again replaces the file.
 - See download progress as a percentage, and cancel a download at any time. Pressing Download moves you to the Result field, so your screen reader reads the progress and the outcome.
+- Install apps on an iPhone or iPad connected by USB, unchanged, like iTunes used to, either with the Install on iPhone button or right after each download. The app's signature is checked first, so you're warned about apps the phone would likely refuse. See [Install on iPhone](#install-on-iphone), including the cautions.
 - Browse the apps your account owns, 100 at a time, each read as its name, version, developer, purchase date and size. They load by themselves the first time you move into the My apps page, and then searching them by name or bundle ID (with Enter or the Search button), filtering by platform, sorting and turning pages are instant.
 - Sort your apps by purchase date, name, bundle ID, developer (A to Z or Z to A) or size (largest or smallest first), or by how long they've been on the App Store.
 - See which of your apps are still on the App Store and which have been removed, with the availability filter.
@@ -203,6 +204,61 @@ Lines Apple has nothing for are left out (this app has no ratings yet; others sh
 - **Apps that left the App Store** have no details at Apple; the window says so and shows what your purchase history knows (name, version, platforms, purchase date, bundle ID and App ID).
 - **Global search** looks the app up once with Apple's public lookup service (no sign-in), and remembers it until you close the GUI.
 
+### Install on iPhone
+
+The Download page can install an `.ipa` on an iPhone, iPad or iPod touch connected with a USB cable. You need Apple Devices (from the Microsoft Store) or iTunes installed, because the GUI talks to the phone through the Apple Mobile Device Service they include. Nothing else is needed: no Python, no extra tools and no jailbreak.
+
+| Control | Shortcut | What it does |
+|---|---|---|
+| Install on iPhone after download | Alt+W | When checked, every download is installed on the connected phone as soon as it's saved. Remembered between sessions; unchecked at first. |
+| Install on iPhone | Alt+I | Opens a file picker with the app you downloaded last already chosen, so Enter installs it. You can pick any other `.ipa` instead. |
+
+What happens when you install:
+
+1. The GUI reads the app's main program inside the `.ipa` and checks its code signature (see [App signing](#app-signing)), then looks for the phone. A phone that hasn't trusted this computer yet shows its "Trust this computer?" prompt; tap Trust and install again.
+2. If the app is 32-bit only, or has an old signature that newer iOS versions refuse, you're warned and asked "Install anyway?" (No is the default).
+3. If more than one device is connected, a list asks which one.
+4. The app is sent to the phone, and the Result field and status bar show the phone's own progress, such as "Installing on Alex's iPhone: 40 percent, checking the app's signature." Escape cancels; if the phone already has the whole file, it may still finish installing.
+5. A message says when it's installed, or explains in plain language why not, for example "Your iPhone refused this version. Its signature is too old for your iOS version. Try a newer version of the app."
+
+**How it works:** the `.ipa` is installed exactly as Apple signed it, the way iTunes and Xcode install apps (through the phone's `com.apple.streaming_zip_conduit` service, using [go-ios](https://github.com/danielpaulus/go-ios)). It is never re-signed or changed, so the App Store license inside stays valid. Installing doesn't contact Apple and doesn't use your Apple Account or keychain passphrase; it's only a USB transfer between your computer and your phone.
+
+**Caution:**
+
+- **The phone must know the account that bought the app.** An App Store app is encrypted and can only be opened on a phone that has the keys of the Apple Account that bought it. A phone gets those keys when that Apple Account is signed in on the phone itself (Settings, then Media & Purchases, or the App Store), and keeps them after you sign out. Tested on iOS 27: apps installed this way opened with no password prompt even while the phone was signed out, including an app installed after signing out.
+- **Signing in to ipatool doesn't give a phone those keys.** Signing in here only lets your computer download. On a phone that has never been signed in to the buying account, the apps will most likely not open (untested), so don't expect someone else's downloads to work on your phone, or yours on theirs.
+- **Updates ask for the buying account.** Updating an app from the App Store asks for the password of the Apple Account that bought it.
+- **Don't share accounts.** Apple only allows sharing purchases through Family Sharing. Using someone else's Apple Account to get their apps means knowing their password, can link your devices to their account, and breaks Apple's terms. Each person should download with their own Apple Account.
+- **Some old versions are refused.** iOS checks the signature's format, and newer iOS versions refuse some old ones with "The code signature version is no longer supported." The year an app was built doesn't decide it: Apple has signed some old apps again later. The GUI warns you before trying.
+- **32-bit apps can't run.** iPhones haven't run 32-bit apps since iOS 11.
+- **Never re-sign App Store apps.** Tools such as Sideloadly re-sign apps with your own certificate. The app then installs, but iOS can't unlock its encrypted code and it crashes as soon as it opens.
+- **Deleting an app erases its data.** If you delete an app from the phone to install a different version, its saved data, such as game progress, is deleted with it.
+
+### App signing
+
+Every app that runs on an iPhone must be signed, which proves who made it and that nothing in it has changed since. Apple uses several kinds of signing:
+
+| Kind | Who uses it | Where it runs |
+|---|---|---|
+| Development | Developers testing their own app | Only devices listed in the developer's provisioning profile |
+| Ad hoc | Developers sharing a test build | Up to 100 registered devices of each type |
+| Enterprise (in-house) | Companies, for their own staff | Any device, after the user trusts the company in Settings |
+| TestFlight | Apple's beta testing service | Testers' devices; each build expires after 90 days |
+| App Store | Everyone. The developer uploads the app, then Apple signs it again with its own certificate and encrypts it | Any device signed in to an account that owns the app |
+| Free sideloading | Tools like Sideloadly or AltStore, with a free Apple Account | The signer's own devices; apps stop working after 7 days |
+
+How the signature works:
+
+- **Inside the app's main program.** The signature is stored in the program file itself (a Mach-O file, in the `LC_CODE_SIGNATURE` section). A program can hold several architectures, such as 32-bit armv7 and 64-bit arm64, and each one has its own signature.
+- **The CodeDirectory** is the core of the signature: a fingerprint (hash) of every 4 KB page of the program, plus fingerprints of the app's Info.plist, its other files and its entitlements. If any byte changes, a fingerprint stops matching and iOS refuses to run the code.
+- **Hash types.** Older apps used SHA-1 fingerprints only. Since about 2016, apps carry two CodeDirectories, one with SHA-1 and one with SHA-256.
+- **Versions.** The CodeDirectory has a format version, and each version added information. For example 0x20200 added the team ID, 0x20400 the executable segment and 0x20500 the runtime version. In testing, iOS 27 refused an app signed with 0x20200 and accepted apps with 0x20500, which is why the GUI warns about versions older than 0x20400.
+- **Entitlements** list what the app is allowed to do, such as using iCloud or push notifications. They're part of the signed data.
+- **The CMS signature** signs the CodeDirectory with a certificate, and the certificate chain leads back to Apple's root certificate. For App Store apps, the certificate is Apple's own. The signature records no signing date; the certificate's validity dates show roughly when it was signed.
+- **Provisioning profiles** (`embedded.mobileprovision`) come with development, ad hoc and enterprise builds. They name the developer's certificate, the allowed devices or company, the entitlements and an expiry date. App Store apps don't need one, because Apple signed them.
+- **FairPlay encryption** is separate from signing. App Store apps have their main program encrypted, and the `.ipa` carries a license (the `sinf` files) for the Apple Account that bought it. When the app opens, the phone unlocks it with that account's keys. iOS only does that for code that still has Apple's signature, which is why a re-signed App Store app crashes when it opens (crash reports say `CODESIGNING` and `Invalid Page`).
+- **Apple can sign an app again.** Apple has re-signed some older App Store apps with newer certificates and formats, without the developer doing anything. For example, Yahoozy 1.2 was built in 2015, but its signature uses CodeDirectory 0x20500 and an Apple certificate from 2019 to 2021, so iOS 27 accepts it. A 2018 version of another app still had its original 0x20200 signature and was refused.
+
 ### Running and building
 
 Go 1.27 or newer is required (see `gui/go.mod`).
@@ -234,6 +290,7 @@ The GUI uses ipatool's engine (`pkg/appstore` and the packages around it) direct
   - `pkg/appstore/storefront.go` exports `CountryCode`, a wrapper around the private store front to country mapping, so My apps can check availability in the account's country.
 - **Availability check:** after the purchase history loads, `gui/availability.go` sends the owned app IDs to Apple's public lookup service (`itunes.apple.com/lookup`, 150 IDs per request, 4 requests at a time, no sign-in) for the account's country. Apps it doesn't return are marked unavailable. If any request fails, every app stays unknown, so a failed check never makes apps look unavailable. The lookup answers include each app's full store record, which the check keeps (`storeDetails` in `gui/details.go`) for App info; a field of an unexpected type is left empty instead of failing the check.
 - **Progress and cancelling:** downloads report progress through a `progressbar` that isn't drawn, read once a second for the status bar and the Result field. Escape cancels the task's context, which stops a download; a cancelled task's result is discarded.
+- **Installing on an iPhone:** `gui/install.go` uses [go-ios](https://github.com/danielpaulus/go-ios) to list devices through Apple Mobile Device Service (usbmuxd on `127.0.0.1:27015`), asks an untrusted phone to pair, and sends the `.ipa` with `zipconduit`. go-ios reports the phone's install progress only through its logger, so the GUI gives it a `slog` handler that turns the "installing" records into progress, and allows one install at a time. Errors are matched by the phone's codes (such as `0xe8008029`), not go-ios's wording, which blames code signing and provisioning profiles for every refusal. `gui/signature.go` reads the main program named in the app's Info.plist with Go's `debug/macho` (single or fat files) and the CodeDirectories in its embedded signature, preferring the arm64 part. Installs run with `runLocalTask`, which works like other tasks but needs no passphrase or engine session.
 
 After merging upstream changes, build the GUI and run `go test .` in the `gui` folder, since changes in `pkg/appstore` or `cmd` can affect it.
 
@@ -246,6 +303,7 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `email` | Apple Account email |
 | `output` | download folder |
 | `passphrase` | keychain passphrase, in plain text, only if "Remember passphrase" is checked |
+| `installAfterDownload` | `true` when "Install on iPhone after download" is checked (left out otherwise) |
 
 ### Source layout
 
@@ -258,6 +316,11 @@ Settings are stored as JSON in `%APPDATA%\ipatool-gui\settings.json`:
 | `account.go` | Account page and the two-factor code prompt |
 | `search.go` | Global search page and the app list model shared with My apps |
 | `download.go` | Download page and the Choose older version dialog |
+| `installpage.go` | The Download page's Install on iPhone button and check box, and the Choose a device dialog |
+| `install.go` | Finding connected phones, installing over USB, install progress and the install error messages |
+| `install_test.go` | Tests for the install error messages and progress |
+| `signature.go` | Reads an app's code signature to warn about 32-bit apps and old signatures |
+| `signature_test.go` | Tests the signature check on small made-up programs and broken files |
 | `filenames.go` | iTunes-style file names for downloads, made safe for Windows |
 | `filenames_test.go` | Tests for the file names, shortening and replacing |
 | `purchases.go` | My apps page |
