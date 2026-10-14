@@ -32,6 +32,7 @@ Enter on an app in a results list: send it to the Download page.
 App info (Alt+O), or Alt+Enter on an app in a list: show what the App Store lists about it (developer, size, rating, what's new, description and more) in a window you can read line by line; Escape closes it.
 Letters in an app list: jump to the next app whose name starts with them; type several letters quickly to match more of the name (current page only).
 Download (Alt+D on the Download page): starts the download and moves you to the Result field, which shows the progress.
+Find App ID (Alt+N on the Download page): search the Internet Archive's saved App Store pages for an app that left the App Store, by name; Enter on a result puts its App ID in the App field.
 Install on iPhone (Alt+I on the Download page): pick an .ipa (the last download is already chosen) and install it on the iPhone connected by USB; the Result field shows the progress.
 Install on iPhone after download (Alt+W on the Download page): when checked, every download is installed on the connected iPhone right away.
 My apps: your apps load the first time you move into the page.
