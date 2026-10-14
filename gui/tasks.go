@@ -67,17 +67,29 @@ func (g *gui) runTask(name, status string, work func(ctx context.Context, b *bac
 		return
 	}
 
+	g.runLocalTask(name, status, func(ctx context.Context) (any, error) {
+		b, err := newBackend(passphrase)
+		if err != nil {
+			return nil, err
+		}
+		return work(ctx, b)
+	}, onDone)
+}
+
+// runLocalTask is runTask for work that doesn't use ipatool's engine or the
+// Apple account (like installing on an iPhone), so no passphrase is needed.
+func (g *gui) runLocalTask(name, status string, work func(ctx context.Context) (any, error), onDone func(any, error)) {
+	if g.busy {
+		g.showBusy()
+		return
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	g.cancelTask = cancel
 	g.log("> " + name)
 	stopBusy := g.startBusy(status)
 
 	go func() {
-		var result any
-		b, err := newBackend(passphrase)
-		if err == nil {
-			result, err = work(ctx, b)
-		}
+		result, err := work(ctx)
 		g.app.Synchronize(func() {
 			stopBusy()
 			cancel()
