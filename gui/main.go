@@ -32,6 +32,8 @@ Enter on an app in a results list: send it to the Download page.
 App info (Alt+O), or Alt+Enter on an app in a list: show what the App Store lists about it (developer, size, rating, what's new, description and more) in a window you can read line by line; Escape closes it.
 Letters in an app list: jump to the next app whose name starts with them; type several letters quickly to match more of the name (current page only).
 Download (Alt+D on the Download page): starts the download and moves you to the Result field, which shows the progress.
+Install on iPhone (Alt+I on the Download page): pick an .ipa (the last download is already chosen) and install it on the iPhone connected by USB; the Result field shows the progress.
+Install on iPhone after download (Alt+W on the Download page): when checked, every download is installed on the connected iPhone right away.
 My apps: your apps load the first time you move into the page.
 Search my apps (Alt+S), the availability filter (Alt+I: all apps, available, or no longer on the App Store), the platform filter (Alt+T) and Sort by (Alt+B) work instantly; Enter in any of them moves to the list.
 Search button (Alt+R) in My apps: does the same as Enter in Search my apps.
