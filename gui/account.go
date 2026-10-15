@@ -43,8 +43,8 @@ func (g *gui) accountTab() TabPage {
 				OnCheckedChanged: func() { reveal(a.passphrase, a.showPassphrase.Checked()) }},
 		}})...)
 	rows = append(rows,
-		Label{AssignTo: &a.emailLabel, Text: "Apple ID &email:"},
-		LineEdit{AssignTo: &a.email, Text: g.settings.Email, Accessibility: accessible("Apple ID &email:")},
+		Label{AssignTo: &a.emailLabel, Text: "Apple ID &email or phone number:"},
+		LineEdit{AssignTo: &a.email, Text: g.settings.Email, Accessibility: accessible("Apple ID &email or phone number:")},
 		HSpacer{},
 		Label{AssignTo: &a.passwordLabel, Text: "Apple ID pass&word:"},
 		LineEdit{AssignTo: &a.password, PasswordMode: true, Accessibility: accessible("Apple ID pass&word:"),
@@ -83,7 +83,7 @@ func (g *gui) login() {
 	a := &g.account
 	email, password := strings.TrimSpace(a.email.Text()), a.password.Text()
 	if email == "" || password == "" {
-		g.error("Missing details", "Enter your Apple ID email and password.")
+		g.error("Missing details", "Enter your Apple ID (email address or phone number) and password.")
 		return
 	}
 	g.persist()
