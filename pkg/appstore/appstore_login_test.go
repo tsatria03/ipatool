@@ -77,8 +77,8 @@ var _ = Describe("AppStore (Login)", func() {
 	)
 
 	Describe("transient authentication responses", func() {
-		It("retries the same request until it succeeds", func() {
-			request := as.loginRequest(testEmail, testPassword, "", "guid", testAuthEndpoint, 1, signer)
+		DescribeTable("retries the same request until it succeeds", func(appleID, storefront string) {
+			request := as.loginRequest(appleID, testPassword, "", "guid", testAuthEndpoint, 1, signer)
 			responses := []struct {
 				result http.Result[loginResult]
 				err    error
@@ -92,6 +92,8 @@ var _ = Describe("AppStore (Login)", func() {
 				Send(gomock.Any()).
 				DoAndReturn(func(actual http.Request) (http.Result[loginResult], error) {
 					Expect(actual.URL).To(Equal(request.URL))
+					Expect(actual.Headers["X-Apple-Store-Front"]).To(Equal(storefront))
+					Expect(actual.Payload.(*http.XMLPayload).Content).To(HaveKeyWithValue("appleId", appleID))
 					Expect(actual.Payload.(*http.XMLPayload).Content).To(HaveKeyWithValue("attempt", "1"))
 					response := responses[call]
 					call++
@@ -104,7 +106,11 @@ var _ = Describe("AppStore (Login)", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.StatusCode).To(Equal(200))
-		})
+		},
+			Entry("email account", testEmail, ""),
+			Entry("Chinese phone account", "+8613912345678", "143465"),
+			Entry("Indian phone account", "9123456789", "143467"),
+		)
 
 		DescribeTable("bounds retries to transient statuses",
 			func(status, expectedCalls int) {
@@ -164,6 +170,7 @@ var _ = Describe("AppStore (Login)", func() {
 		DescribeTable("normalizes 2FA codes without changing the password", func(code, suffix string) {
 			const password = " \tpäss word\n"
 			mockClient.EXPECT().Send(gomock.Any()).DoAndReturn(func(req http.Request) (http.Result[loginResult], error) {
+				Expect(req.URL).To(Equal(testAuthEndpoint + "/"))
 				Expect(req.Payload.(*http.XMLPayload).Content).To(HaveKeyWithValue("password", password+suffix))
 
 				return http.Result[loginResult]{}, errors.New("test complete")
@@ -189,7 +196,7 @@ var _ = Describe("AppStore (Login)", func() {
 				mockClient.EXPECT().
 					Send(gomock.Any()).
 					Do(func(req http.Request) {
-						Expect(req.URL).To(Equal(testAuthEndpoint))
+						Expect(req.URL).To(Equal(testAuthEndpoint + "/"))
 						Expect(req.ActionSigner).To(BeIdenticalTo(signer))
 					}).
 					Return(http.Result[loginResult]{}, clientErr)
@@ -328,7 +335,7 @@ var _ = Describe("AppStore (Login)", func() {
 				firstCall := mockClient.EXPECT().
 					Send(gomock.Any()).
 					Do(func(req http.Request) {
-						Expect(req.URL).To(Equal(testAuthEndpoint))
+						Expect(req.URL).To(Equal(testAuthEndpoint + "/"))
 						Expect(req.ActionSigner).To(BeIdenticalTo(signer))
 						Expect(req.Payload).To(BeAssignableToTypeOf(&http.XMLPayload{}))
 						x := req.Payload.(*http.XMLPayload)

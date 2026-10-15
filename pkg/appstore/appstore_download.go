@@ -73,7 +73,7 @@ func (t *appstore) Download(input DownloadInput) (DownloadOutput, error) {
 	}
 
 	externalVersionID := input.ExternalVersionID
-	if externalVersionID == "" && (input.Platform == PlatformAppleTV || input.Platform == PlatformVisionOS) {
+	if externalVersionID == "" && (input.Platform == PlatformAppleTV || input.Platform == PlatformWatchOS || input.Platform == PlatformVisionOS) {
 		externalVersionID, err = t.lookupLatestExternalVersionID(input.Account, input.App, input.Platform)
 		// Delisted tvOS apps may have no catalog offer but still be available
 		// for redownload. Validate the returned package's platform below.
@@ -189,6 +189,8 @@ func (*appstore) validatePackagePlatform(path string, platform Platform) error {
 		expectedPlatform = "iPhoneOS"
 	case PlatformAppleTV:
 		expectedPlatform = "AppleTVOS"
+	case PlatformWatchOS:
+		expectedPlatform = "WatchOS"
 	case PlatformVisionOS:
 		expectedPlatform = "XROS"
 	default:
@@ -246,11 +248,12 @@ func isTopLevelAppInfoPlist(path string) bool {
 }
 
 type downloadItemResult struct {
-	ArtworkURL string                 `plist:"artworkURL,omitempty"`
-	HashMD5    string                 `plist:"md5,omitempty"`
-	URL        string                 `plist:"URL,omitempty"`
-	Sinfs      []Sinf                 `plist:"sinfs,omitempty"`
-	Metadata   map[string]interface{} `plist:"metadata,omitempty"`
+	PreflightPackageURL string                 `plist:"preflightPackageURL,omitempty"`
+	ArtworkURL          string                 `plist:"artworkURL,omitempty"`
+	HashMD5             string                 `plist:"md5,omitempty"`
+	URL                 string                 `plist:"URL,omitempty"`
+	Sinfs               []Sinf                 `plist:"sinfs,omitempty"`
+	Metadata            map[string]interface{} `plist:"metadata,omitempty"`
 }
 
 type downloadResult struct {
