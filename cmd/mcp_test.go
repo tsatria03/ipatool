@@ -135,7 +135,7 @@ var _ = Describe("MCP server", func() {
 		Entry("invalid metadata version type", "get_version_metadata", map[string]any{"app_id": 123, "external_version_id": 200}),
 		Entry("invalid metadata platform", "get_version_metadata", map[string]any{"app_id": 123, "external_version_id": "200", "platform": "unknown"}),
 		Entry("invalid page", "list_purchases", map[string]any{"page": 0}),
-		Entry("invalid page size", "list_purchases", map[string]any{"max_results": 101}),
+		Entry("invalid page size", "list_purchases", map[string]any{"max_results": appstore.MaxOwnedAppsLimit + 1}),
 	)
 
 	It("returns actionable account errors and keeps serving requests", func() {
