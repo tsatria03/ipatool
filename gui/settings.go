@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var platforms = []string{"iphone", "ipad", "appletv", "visionos", "macos"}
+var platforms = []string{"iphone", "ipad", "appletv", "watchos", "visionos", "macos"}
 
 // Settings are what the GUI remembers between sessions, stored as JSON in
 // %APPDATA%\ipatool-gui\settings.json.
