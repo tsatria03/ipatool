@@ -22,6 +22,9 @@ func errorText(err error) string {
 	switch {
 	case errors.Is(err, errPaidApp):
 		return msgPaidApp
+	case errors.Is(err, errNoFreeLicense):
+		return "Your account doesn't own this app, and Apple wouldn't give a free license, so it was probably a paid app " +
+			"you didn't buy. It can only be downloaded if your account bought it."
 	case errors.Is(err, errFreeNotOwned):
 		return "Your account doesn't own this app yet. It's free: check \"Get a free license if needed\" and download again."
 	case errors.Is(err, appstore.ErrLicenseRequired):

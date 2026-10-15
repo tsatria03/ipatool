@@ -51,10 +51,17 @@ type fakeStore struct {
 	appstore.AppStore
 	price        float64
 	owned        bool
-	removed      bool // left the App Store: the lookup service no longer knows it
+	removed      bool  // left the App Store: the lookup service no longer knows it
+	refuse       error // what Purchase returns, as Apple does for a paid app sold as free
 	purchases    int
 	accountReads int
+	logins       int
 	downloaded   appstore.App
+}
+
+func (f *fakeStore) Login(appstore.LoginInput) (appstore.LoginOutput, error) {
+	f.logins++
+	return appstore.LoginOutput{}, appstore.ErrAuthCodeRequired // Apple wants a two-factor code
 }
 
 func (f *fakeStore) AccountInfo() (appstore.AccountInfoOutput, error) {
@@ -73,6 +80,9 @@ func (f *fakeStore) Purchase(in appstore.PurchaseInput) error {
 	f.purchases++
 	if in.App.Price > 0 { // what the real engine does
 		return errors.New("purchasing paid apps is not supported")
+	}
+	if f.refuse != nil {
+		return f.refuse
 	}
 	f.owned = true
 	return nil
@@ -153,5 +163,37 @@ func TestDownloadLicenseRules(t *testing.T) {
 		if store.accountReads != 1 {
 			t.Errorf("%s: account read %d times, want 1", tt.name, store.accountReads)
 		}
+	}
+}
+
+func TestRemovedPaidAppNoRelogin(t *testing.T) {
+	// Like Sound Shaker by zinc Roe (336912043, $1.99, removed, not owned): the
+	// price is unknown, so a free license is tried, and Apple answers "sign in
+	// required" (the engine's ErrPasswordTokenExpired).
+	refused := fmt.Errorf("failed to purchase item with param 'STDQ': %w", appstore.ErrPasswordTokenExpired)
+	store := &fakeStore{removed: true, refuse: refused}
+	b := &backend{store: store}
+	req := downloadRequest{target: "336912043", platform: "iphone", getLicense: true}
+	_, err := b.download(context.Background(), req, nil)
+	if !errors.Is(err, errNoFreeLicense) {
+		t.Fatalf("err = %v, want errNoFreeLicense", err)
+	}
+	if store.logins != 0 {
+		t.Errorf("signed in again %d times; that sends a two-factor prompt to the user's phone", store.logins)
+	}
+	if store.purchases != 1 {
+		t.Errorf("%d purchase attempts, want 1", store.purchases)
+	}
+	if !strings.Contains(errorText(err), "probably a paid app you didn't buy") {
+		t.Errorf("message = %q", errorText(err))
+	}
+
+	// With a known price (an app still on the App Store), an expired sign-in
+	// still signs in again, as cmd/ does.
+	store = &fakeStore{refuse: refused}
+	b = &backend{store: store}
+	req.target = "com.example.app"
+	if _, err := b.download(context.Background(), req, nil); !errors.Is(err, appstore.ErrAuthCodeRequired) || store.logins != 1 {
+		t.Errorf("known price: err = %v, logins = %d; want a sign-in attempt", err, store.logins)
 	}
 }

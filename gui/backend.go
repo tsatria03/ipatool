@@ -140,6 +140,7 @@ var (
 	errCodeNotAccepted = errors.New("the two-factor code was not accepted; try logging in again")
 	errPaidApp         = errors.New("this is a paid app that the account hasn't bought")
 	errFreeNotOwned    = errors.New("the account doesn't own this free app and getting a license is off")
+	errNoFreeLicense   = errors.New("the account doesn't own this app and Apple refused a free license")
 )
 
 // isPaidPurchaseRefusal reports the engine's refusal to buy a paid app
@@ -266,6 +267,13 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 			if purchaseRequired {
 				err := b.store.Purchase(appstore.PurchaseInput{Account: acc, App: app, Platform: platform})
 				if err != nil && !errors.Is(err, appstore.ErrLicenseAlreadyExists) {
+					// An app that left the App Store has no known price. If Apple
+					// answers the free license with "sign in required", it's almost
+					// always a paid app: stop, rather than signing in again, which
+					// only sends a surprise two-factor prompt to the user's devices.
+					if !priceKnown && errors.Is(err, appstore.ErrPasswordTokenExpired) {
+						return "", errNoFreeLicense
+					}
 					return "", err
 				}
 				purchaseRequired, purchased = false, true
