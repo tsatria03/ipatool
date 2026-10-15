@@ -98,7 +98,7 @@ $ go test -v ./...
 
 ## Accessible GUI
 
-The `gui` folder contains a Windows front end for ipatool, written in Go with [walk](https://github.com/tailscale/walk) (Tailscale's maintained fork). walk builds windows from native Win32 controls, which screen readers can read through MSAA. The GUI is its own Go module (`ipatool-gui`), so ipatool's `go.mod` and code are untouched, and it uses ipatool's engine directly, so `ipatool-gui.exe` is a single standalone program (about 44 MB).
+The `gui` folder contains a Windows front end for ipatool, written in Go with [walk](https://github.com/tailscale/walk) (Tailscale's maintained fork). walk builds windows from native Win32 controls, which screen readers can read through MSAA. The GUI is its own Go module (`ipatool-gui`), so ipatool's `go.mod` isn't affected by the GUI's libraries, and it uses ipatool's engine directly, so `ipatool-gui.exe` is a single standalone program (about 47 MB). The few changes this fork makes to ipatool's own code are listed under [How it works](#how-it-works).
 
 ### Features
 
@@ -314,7 +314,7 @@ The GUI uses ipatool's engine (`pkg/appstore` and the packages around it) direct
 - **Tasks:** each action runs in the background with a fresh engine session (so a corrected passphrase takes effect immediately), and updates the window on the UI thread.
 - **My apps:** every owned-apps request makes the engine download the whole purchase history (about 12 seconds) and then cut out one page. The GUI therefore fetches the whole list once per session (`backend.ownedAppsAll`), keeps it in memory, and searches, filters and pages through it locally (`myapps.go`). The first load starts when focus first enters the page's controls; Load fetches a fresh list.
 - **Changes to ipatool's own code:** keep these in mind when merging upstream changes to those files.
-  - To fetch everything in one request, this fork raises `MaxOwnedAppsLimit` in `pkg/appstore/appstore_owned_apps.go` from 100 to 100000 (the related tests in `pkg/appstore` and `cmd` use the constant). The command line tool's `list-purchases --max-results` accepts the larger value too.
+  - To fetch everything in one request, this fork raises `MaxOwnedAppsLimit` in `pkg/appstore/appstore_owned_apps.go` from 100 to 100000 (the related tests in `pkg/appstore` and `cmd` use the constant, including upstream's MCP test in `cmd/mcp_test.go`, which this fork changed from a fixed 101 to `MaxOwnedAppsLimit + 1`). The command line tool's `list-purchases --max-results` and the MCP server's `list_purchases` tool accept the larger value too.
   - `appstore.App` in `pkg/appstore/app.go` has `FileSizeBytes` and `ArtistName` fields, which keep the size and developer Apple lists in search and lookup results, for Global search's Size and Developer columns. The command line tool's output is unchanged, because it lists its fields explicitly.
   - `appstore.DownloadOutput` in `pkg/appstore/appstore_download.go` has `Name` and `Version`, the app's store name (`itemName`) and version from Apple's download answer (falling back to `bundleVersion` for older apps without `bundleShortVersionString`). The GUI renames finished downloads to `Name Version.ipa` with them (`gui/filenames.go`), after the license data is copied in, so resuming and licensing work as before. The command line tool's file names are unchanged.
   - `pkg/appstore/storefront.go` exports `CountryCode`, a wrapper around the private store front to country mapping, so My apps can check availability in the account's country.
