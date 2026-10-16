@@ -3,7 +3,7 @@
 - [Devices (private)](../private/devices.md) — the user's iPhone name, model, UDID, Wi-Fi addresses and PC software; Apple ID and device names are only written in aidocks/private
 - [Game engine (private)](../private/game-engine.md) — the engine the user builds games with; never name it in the repo (code, messages, README, aidocks general/plans)
 - [Protect the Apple account](protect-apple-account.md) — no bulk signed-in requests to Apple; public lookups in small batches only
-- [Missing apps to Downloads](missing-apps-to-downloads.md) — when the user shows a missing app, check it, download once by App ID, copy the .ipa to their Downloads; since 2026-10-13 only when they explicitly ask, never offer
+- [Missing apps to Downloads](missing-apps-to-downloads.md) — when the user shows a missing app, check it, download once by App ID, copy the .ipa to their Downloads; since 2026-10-13 only when they explicitly ask, never offer; since 2026-10-16 ALWAYS copy every downloaded app (tests too) to Downloads
 - [No pickers](no-pickers.md) — ask questions as plain text with numbered options, ONE question per reply; never use the AskUserQuestion picker
 - [No punctuation on controls](no-control-punctuation.md) — never end button/list/menu text with "..." or "."; messages may keep punctuation
 - [First-letter nav in lists](lists-first-letter-nav.md) — every list control must support type-ahead (current page only); walk TableViews need the helper
