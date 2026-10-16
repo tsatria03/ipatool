@@ -1,6 +1,7 @@
 - [Screen reader user](screen-reader-user.md) — user uses NVDA; native-control GUIs only (wxPython, or Go walk + winfix.go), never tkinter/Fyne
 - [US App Store account](../private/apple-account-us.md) — user's Apple Account is on the US store; 3554 owned, ~961 no longer on the store (2026-09-27)
 - [Devices (private)](../private/devices.md) — the user's iPhone name, model, UDID, Wi-Fi addresses and PC software; Apple ID and device names are only written in aidocks/private
+- [Game engine (private)](../private/game-engine.md) — the engine the user builds games with; never name it in the repo (code, messages, README, aidocks general/plans)
 - [Protect the Apple account](protect-apple-account.md) — no bulk signed-in requests to Apple; public lookups in small batches only
 - [Missing apps to Downloads](missing-apps-to-downloads.md) — when the user shows a missing app, check it, download once by App ID, copy the .ipa to their Downloads; since 2026-10-13 only when they explicitly ask, never offer
 - [No pickers](no-pickers.md) — ask questions as plain text with numbered options, ONE question per reply; never use the AskUserQuestion picker
@@ -26,7 +27,7 @@
 - [Plan: account signed-in view](../plans/plan-account-signed-in-view.md) — signed in: hide email, password, Log in; signed out: hide Log out; Show passphrase/password boxes; COMPLETED (93eed55, 17016a3)
 - [Plan: install on iPhone](../plans/plan-install-on-iphone.md) — native Go (go-ios, no Python) install of .ipa over USB from the Download page, signature pre-check, sending progress, README caution + app-signing sections; COMPLETED (30b521a..68ccb75); plan stays in memory, not the repo; Wi-Fi install explored then SHELVED by the user (USB only)
 - [Plan: Apple ID check](../plans/plan-apple-id-check.md) — warn before Install on iPhone when the .ipa's iTunesMetadata Apple ID differs from the signed-in account; idea 2 of 3 (order 2, 3, 1); COMPLETED (b72f529, 92135d9)
-- [Plan: not-signed message](../plans/plan-not-signed-message.md) — explain self-built/unsigned apps (NVGT games) as "not signed for your iPhone"; idea 3 of 3; COMPLETED (85a58ad, 2f30288); next: Find App ID
+- [Plan: not-signed message](../plans/plan-not-signed-message.md) — explain self-built/unsigned apps (games you build yourself) as "not signed for your iPhone"; idea 3 of 3; COMPLETED (85a58ad, 2f30288); next: Find App ID
 - [Plan: Find App ID](../plans/plan-find-app-id.md) — Download page dialog: Wayback Machine search by name (never Apple), confirm name/developer from saved page, fill App ID; idea 1 of 3 (last); COMPLETED (3b173af..e445dfc)
 - [Fix: no re-login on refused license](../plans/plan-no-relogin-on-refused-license.md) — removed app, unknown price, Apple refuses free license -> stop with a plain message, never re-login (surprise 2FA prompt); COMPLETED (ab17394, 342e199)
 - [Feature ideas backlog](feature-ideas-backlog.md) — my suggested GUI ideas (sound on finish, already-downloaded marker, import Apple purchase history file, app details...); none approved yet; batch downloads declined
