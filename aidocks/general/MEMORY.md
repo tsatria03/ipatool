@@ -1,0 +1,35 @@
+- [Screen reader user](screen-reader-user.md) — user uses NVDA; native-control GUIs only (wxPython, or Go walk + winfix.go), never tkinter/Fyne
+- [US App Store account](../private/apple-account-us.md) — user's Apple Account is on the US store; 3554 owned, ~961 no longer on the store (2026-09-27)
+- [Devices (private)](../private/devices.md) — the user's iPhone name, model, UDID, Wi-Fi addresses and PC software; Apple ID and device names are only written in aidocks/private
+- [Protect the Apple account](protect-apple-account.md) — no bulk signed-in requests to Apple; public lookups in small batches only
+- [Missing apps to Downloads](missing-apps-to-downloads.md) — when the user shows a missing app, check it, download once by App ID, copy the .ipa to their Downloads; since 2026-10-13 only when they explicitly ask, never offer
+- [No pickers](no-pickers.md) — ask questions as plain text with numbered options, ONE question per reply; never use the AskUserQuestion picker
+- [No punctuation on controls](no-control-punctuation.md) — never end button/list/menu text with "..." or "."; messages may keep punctuation
+- [First-letter nav in lists](lists-first-letter-nav.md) — every list control must support type-ahead (current page only); walk TableViews need the helper
+- [Hidden GUI tests](gui-tests-hidden.md) — run GUI tests on a separate hidden desktop; never show windows or steal focus
+- [Plans in memory first](../plans/plans-in-memory-first.md) — write agreed plans to memory, re-read and review them, then build
+- [Plan: self-contained GUI](../plans/plan-self-contained-gui.md) — ipatool-gui.exe uses ../pkg directly (no ipatool.exe); COMPLETED, keep backend.go in sync with cmd/
+- [Plan: clearer errors](../plans/plan-clearer-errors.md) — plain-language error messages incl. paid apps not bought; COMPLETED (f525999)
+- [Plan: My apps cache + search](../plans/plan-my-apps-filter-reload.md) — raise engine cap, fetch all owned apps once per session, instant search/filter/paging, auto-load on first Tab in; COMPLETED (7945752..321be5b)
+- [Plan: My apps 100 per page](../plans/plan-my-apps-100-per-page.md) — appsPerPage 25 -> 100 for all My apps views; COMPLETED
+- [Plan: sort + Global search](../plans/plan-sort-and-rename.md) — Sort by combo (8 orders) on My apps, Search tab renamed Global search, blank price on My apps; COMPLETED
+- [Plan: Search button + Result focus](../plans/plan-search-button-result-focus.md) — Search button (Alt+R) after Search my apps; Download button focuses the Result field; COMPLETED
+- [Plan: sizes in Global search](../plans/plan-search-sizes.md) — keep Apple's fileSizeBytes in appstore.App, Size column (KB/MB/GB) in Global search only; COMPLETED
+- [Plan: cleanup leftovers](../plans/plan-cleanup-leftovers.md) — remove unused ownedApps/ownedPage, fillList bool, fix App comment; COMPLETED
+- [Plan: export My apps](../plans/plan-export-my-apps.md) — Copy all apps (text lines) + Export to JSON (metadata), following filter/search/sort; COMPLETED
+- [Plan: availability filter](../plans/plan-availability-filter.md) — second My apps combo (All / Available / Unavailable) checked against the account's store; COMPLETED
+- [Plan: removed app downloads](../plans/plan-removed-app-downloads.md) — bundle ID lookup fails for removed apps; fall back to the known App ID; COMPLETED
+- [Plan: first-letter navigation](../plans/plan-first-letter-navigation.md) — handle LVN_ODFINDITEM so typing letters jumps in the app lists; COMPLETED
+- [Plan: iTunes-style file names](../plans/plan-itunes-file-names.md) — rename downloads to "Name Version.ipa", replace existing; COMPLETED
+- [Plan: app details](../plans/plan-app-details.md) — App info button (Alt+O) / Alt+Enter shows store details in a text dialog; reuses availability lookup data; COMPLETED (da717ca..9dda968)
+- [Plan: more sort orders](../plans/plan-more-sort-orders.md) — short list rows (My apps: name/version/developer/purchase date/size; Global search: name/version/developer/price/size), engine ArtistName, sort by size + developer; COMPLETED (25fc13c..3338c98)
+- [Plan: account signed-in view](../plans/plan-account-signed-in-view.md) — signed in: hide email, password, Log in; signed out: hide Log out; Show passphrase/password boxes; COMPLETED (93eed55, 17016a3)
+- [Plan: install on iPhone](../plans/plan-install-on-iphone.md) — native Go (go-ios, no Python) install of .ipa over USB from the Download page, signature pre-check, sending progress, README caution + app-signing sections; COMPLETED (30b521a..68ccb75); plan stays in memory, not the repo; Wi-Fi install explored then SHELVED by the user (USB only)
+- [Plan: Apple ID check](../plans/plan-apple-id-check.md) — warn before Install on iPhone when the .ipa's iTunesMetadata Apple ID differs from the signed-in account; idea 2 of 3 (order 2, 3, 1); COMPLETED (b72f529, 92135d9)
+- [Plan: not-signed message](../plans/plan-not-signed-message.md) — explain self-built/unsigned apps (NVGT games) as "not signed for your iPhone"; idea 3 of 3; COMPLETED (85a58ad, 2f30288); next: Find App ID
+- [Plan: Find App ID](../plans/plan-find-app-id.md) — Download page dialog: Wayback Machine search by name (never Apple), confirm name/developer from saved page, fill App ID; idea 1 of 3 (last); COMPLETED (3b173af..e445dfc)
+- [Fix: no re-login on refused license](../plans/plan-no-relogin-on-refused-license.md) — removed app, unknown price, Apple refuses free license -> stop with a plain message, never re-login (surprise 2FA prompt); COMPLETED (ab17394, 342e199)
+- [Feature ideas backlog](feature-ideas-backlog.md) — my suggested GUI ideas (sound on finish, already-downloaded marker, import Apple purchase history file, app details...); none approved yet; batch downloads declined
+- [Fork is Windows-only](fork-windows-only.md) — no workflows, no Mac/Linux/iOS builds; keep .github deleted on upstream merges
+- [Build output folder](build-output-folder.md) — build ipatool.exe and ipatool-gui.exe into releases\ipatool\; the 2026-10-14 hold ended (all 3 plans built, rebuilt there)
+- [Commit rules](no-coauthor.md) — never add Claude as co-author; commit straight to main, push to origin OK (never upstream); small individual commits (commits are the change log)
