@@ -15,3 +15,5 @@ metadata:
 **Fix (gui/backend.go download):** in the purchase step, when the price is unknown (!priceKnown) and Purchase fails with ErrPasswordTokenExpired, return a new errNoFreeLicense right away - no re-login, no retry. Message (gui/messages.go errorText): "Your account doesn't own this app, and Apple wouldn't give a free license, so it was probably a paid app you didn't buy. It can only be downloaded if your account bought it." Real token expiry elsewhere (download step, known-price purchases) keeps the re-login behaviour.
 
 **Tests (gui/errors_test.go fakeStore):** removed app by numeric ID + license required + Purchase returning wrapped ErrPasswordTokenExpired -> errNoFreeLicense, Login never called, one purchase attempt; errorText test for the new message. Then README "How it works" bullet if it describes the retry, build into releases\ipatool, small commits ([[no-coauthor]]). Related: [[protect-apple-account]], [[plan-removed-app-downloads]].
+
+**Superseded 2026-10-31:** the GUI now never signs in again on its own, at any step ([[plan-no-automatic-relogin]]); errNoFreeLicense stays, with a message that also covers an expired sign-in.

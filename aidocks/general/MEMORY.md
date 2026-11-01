@@ -31,7 +31,7 @@
 - [Plan: not-signed message](../plans/plan-not-signed-message.md) — explain self-built/unsigned apps (games you build yourself) as "not signed for your iPhone"; idea 3 of 3; COMPLETED (85a58ad, 2f30288); next: Find App ID
 - [Plan: Find App ID](../plans/plan-find-app-id.md) — Download page dialog: Wayback Machine search by name (never Apple), confirm name/developer from saved page, fill App ID; idea 1 of 3 (last); COMPLETED (3b173af..e445dfc)
 - [Fix: no re-login on refused license](../plans/plan-no-relogin-on-refused-license.md) — removed app, unknown price, Apple refuses free license -> stop with a plain message, never re-login (surprise 2FA prompt); COMPLETED (ab17394, 342e199)
-- [Fix: no automatic sign-in](../plans/plan-no-automatic-relogin.md) — GUI never signs in again on its own (2FA prompt, can never finish); expired sign-in -> plain message to log in on the Account page; PLANNED, not approved
+- [Fix: no automatic sign-in](../plans/plan-no-automatic-relogin.md) — GUI never signs in again on its own (2FA prompt, can never finish); expired sign-in -> plain message to log in on the Account page; COMPLETED (e6d64f6, fd5fe4d)
 - [Plan: merge upstream store frameworks](../plans/plan-merge-upstream-store-frameworks.md) — merge upstream 5dc4c80 + d9c0247; merged then UNDONE 2026-10-31 (new emulator breaks on Apple's sign-in dialog, missing NSURLComponents setQuery:); ON HOLD until upstream fixes it
 - [Feature ideas backlog](feature-ideas-backlog.md) — my suggested GUI ideas (sound on finish, already-downloaded marker, import Apple purchase history file, app details...); none approved yet; batch downloads declined
 - [Fork is Windows-only](fork-windows-only.md) — no workflows, no Mac/Linux/iOS builds; keep .github deleted on upstream merges
