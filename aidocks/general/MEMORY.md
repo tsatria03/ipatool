@@ -30,6 +30,7 @@
 - [Plan: not-signed message](../plans/plan-not-signed-message.md) — explain self-built/unsigned apps (games you build yourself) as "not signed for your iPhone"; idea 3 of 3; COMPLETED (85a58ad, 2f30288); next: Find App ID
 - [Plan: Find App ID](../plans/plan-find-app-id.md) — Download page dialog: Wayback Machine search by name (never Apple), confirm name/developer from saved page, fill App ID; idea 1 of 3 (last); COMPLETED (3b173af..e445dfc)
 - [Fix: no re-login on refused license](../plans/plan-no-relogin-on-refused-license.md) — removed app, unknown price, Apple refuses free license -> stop with a plain message, never re-login (surprise 2FA prompt); COMPLETED (ab17394, 342e199)
+- [Plan: merge upstream store frameworks](../plans/plan-merge-upstream-store-frameworks.md) — merge upstream 5dc4c80 + d9c0247, drop gui/go.mod's dead lzfse replace, README note, rebuild; don't push; IN PROGRESS
 - [Feature ideas backlog](feature-ideas-backlog.md) — my suggested GUI ideas (sound on finish, already-downloaded marker, import Apple purchase history file, app details...); none approved yet; batch downloads declined
 - [Fork is Windows-only](fork-windows-only.md) — no workflows, no Mac/Linux/iOS builds; keep .github deleted on upstream merges
 - [Build output folder](build-output-folder.md) — build ipatool.exe and ipatool-gui.exe into releases\ipatool\; the 2026-10-14 hold ended (all 3 plans built, rebuilt there)
