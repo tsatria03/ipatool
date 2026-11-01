@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-**Status:** COMPLETED 2026-10-31 (e6d64f6 fix + messages + tests, fd5fe4d README; not pushed yet). User approved building ("yes"). TestExpiredSignInNoRelogin fails on the old code with exactly "auth code is required" + 1 sign-in, passes now. Both exes rebuilt into releases\ipatool. gofmt flags findid.go / findid_test.go (older, untouched). Replaces the earlier draft plan-no-relogin-for-app-id-downloads (never committed, deleted).
+**Status:** COMPLETED 2026-10-31 (e6d64f6 fix + messages + tests, fd5fe4d README; pushed to origin 2026-10-31 after the user said "yes"). User approved building ("yes"). TestExpiredSignInNoRelogin fails on the old code with exactly "auth code is required" + 1 sign-in, passes now. Both exes rebuilt into releases\ipatool. gofmt flags findid.go / findid_test.go (older, untouched). Replaces the earlier draft plan-no-relogin-for-app-id-downloads (never committed, deleted).
 
 **Why:** 2026-10-31 the saved sign-in had expired. Downloading iFoley Footsteps (App ID 907997410) by App ID got "sign in required" (ErrPasswordTokenExpired); backend.download signed in again with the saved password; the account uses two-factor, so Apple wanted a code the download can't ask for -> "Download failed, auth code is required", plus a sign-in prompt on the user's iPhone. Ready to Roll then failed the same way. After the user logged out and in on the Account page (typing the code), both downloaded fine. So the automatic sign-in can never finish on this account and only sends surprise prompts. This also covers the case [[plan-no-relogin-on-refused-license]] fixed for the Purchase step (Sound Shaker, 2026-10-14), which may itself have been an expired sign-in.
 
