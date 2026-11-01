@@ -20,6 +20,9 @@ func TestErrorText(t *testing.T) {
 		{errFreeNotOwned, "It's free"},
 		{fmt.Errorf("download failed: %w", appstore.ErrLicenseRequired), "If it's paid, buy it"},
 		{appstore.ErrPasswordTokenExpired, "sign-in has expired"},
+		{errors.New("failed to get account: password token is expired"), "type your two-factor code"},
+		{fmt.Errorf("failed to login: %w", appstore.ErrAuthCodeRequired), "Apple asked for a two-factor code"},
+		{errNoFreeLicense, "If Apple asks again right after you've logged in"},
 		{appstore.ErrSubscriptionRequired, "Apple Arcade"},
 		{appstore.ErrTemporarilyUnavailable, "temporarily unavailable"},
 		{errCodeNotAccepted, "newest code"},
@@ -53,7 +56,9 @@ type fakeStore struct {
 	owned        bool
 	removed      bool  // left the App Store: the lookup service no longer knows it
 	refuse       error // what Purchase returns, as Apple does for a paid app sold as free
+	expired      bool  // the saved sign-in expired: Download and ListVersions answer "sign in required"
 	purchases    int
+	downloads    int
 	accountReads int
 	logins       int
 	downloaded   appstore.App
@@ -89,11 +94,22 @@ func (f *fakeStore) Purchase(in appstore.PurchaseInput) error {
 }
 
 func (f *fakeStore) Download(in appstore.DownloadInput) (appstore.DownloadOutput, error) {
+	f.downloads++
 	f.downloaded = in.App
+	if f.expired {
+		return appstore.DownloadOutput{}, fmt.Errorf("download failed: %w", appstore.ErrPasswordTokenExpired)
+	}
 	if !f.owned {
 		return appstore.DownloadOutput{}, appstore.ErrLicenseRequired
 	}
 	return appstore.DownloadOutput{DestinationPath: "app.ipa"}, nil
+}
+
+func (f *fakeStore) ListVersions(appstore.ListVersionsInput) (appstore.ListVersionsOutput, error) {
+	if f.expired {
+		return appstore.ListVersionsOutput{}, appstore.ErrPasswordTokenExpired
+	}
+	return appstore.ListVersionsOutput{ExternalVersionIdentifiers: []string{"1"}}, nil
 }
 
 func (f *fakeStore) ReplicateSinf(appstore.ReplicateSinfInput) error { return nil }
@@ -184,16 +200,35 @@ func TestRemovedPaidAppNoRelogin(t *testing.T) {
 	if store.purchases != 1 {
 		t.Errorf("%d purchase attempts, want 1", store.purchases)
 	}
-	if !strings.Contains(errorText(err), "probably a paid app you didn't buy") {
-		t.Errorf("message = %q", errorText(err))
+	if msg := errorText(err); !strings.Contains(msg, "fresh sign-in") || !strings.Contains(msg, "probably a paid app") {
+		t.Errorf("message = %q", msg)
+	}
+}
+
+func TestExpiredSignInNoRelogin(t *testing.T) {
+	// Like iFoley Footsteps and Ready to Roll on 2026-10-31: the saved sign-in
+	// expired. Signing in again with the saved password can't finish with
+	// two-factor on and only sends a prompt to the user's phone, so the GUI
+	// never does it, whatever the app.
+	for _, target := range []string{"com.example.app", "907997410"} {
+		store := &fakeStore{expired: true, owned: true}
+		b := &backend{store: store}
+		_, err := b.download(context.Background(), downloadRequest{target: target, platform: "iphone", getLicense: true}, nil)
+		if !errors.Is(err, appstore.ErrPasswordTokenExpired) {
+			t.Errorf("%s: err = %v, want ErrPasswordTokenExpired", target, err)
+		}
+		if store.logins != 0 || store.downloads != 1 {
+			t.Errorf("%s: %d sign-ins, %d download attempts; want 0 and 1", target, store.logins, store.downloads)
+		}
+		if !strings.Contains(errorText(err), "Account page (Ctrl+1), where you can type your two-factor code") {
+			t.Errorf("%s: message = %q", target, errorText(err))
+		}
 	}
 
-	// With a known price (an app still on the App Store), an expired sign-in
-	// still signs in again, as cmd/ does.
-	store = &fakeStore{refuse: refused}
-	b = &backend{store: store}
-	req.target = "com.example.app"
-	if _, err := b.download(context.Background(), req, nil); !errors.Is(err, appstore.ErrAuthCodeRequired) || store.logins != 1 {
-		t.Errorf("known price: err = %v, logins = %d; want a sign-in attempt", err, store.logins)
+	// Choose older version goes through withAccount, which doesn't sign in again either.
+	store := &fakeStore{expired: true}
+	b := &backend{store: store}
+	if _, err := b.listVersions(context.Background(), "907997410", 0, "iphone"); !errors.Is(err, appstore.ErrPasswordTokenExpired) || store.logins != 0 {
+		t.Errorf("listVersions: err = %v, %d sign-ins; want ErrPasswordTokenExpired and 0", err, store.logins)
 	}
 }

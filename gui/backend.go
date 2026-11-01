@@ -175,23 +175,17 @@ func (b *backend) logout() error {
 	return b.store.Revoke()
 }
 
-// withAccount runs fn with the signed-in account. If Apple reports that the
-// password token expired, it signs in again with the saved credentials and
-// retries once, as cmd/ does for list-purchases and download.
+// withAccount runs fn with the signed-in account. Unlike cmd/, it never signs in
+// again when Apple reports that the password token expired: with two-factor on,
+// a sign-in with the saved password can't finish (there's no one to type the
+// code) and only sends a prompt to the user's devices. The error goes back to
+// the user, who logs in again on the Account page.
 func (b *backend) withAccount(fn func(acc appstore.Account) error) error {
 	info, err := b.store.AccountInfo()
 	if err != nil {
 		return err
 	}
-	err = fn(info.Account)
-	if errors.Is(err, appstore.ErrPasswordTokenExpired) {
-		out, loginErr := b.store.Login(appstore.LoginInput{Email: info.Account.Email, Password: info.Account.Password})
-		if loginErr != nil {
-			return loginErr
-		}
-		err = fn(out.Account)
-	}
-	return err
+	return fn(info.Account)
 }
 
 // search is `ipatool search`.
@@ -227,10 +221,10 @@ type downloadResult struct {
 }
 
 // download is `ipatool download`, following cmd/download.go: the account is read
-// once, then up to 3 attempts, signing in again when the password token expired
-// (the new login is kept for later attempts) and obtaining a license when one
-// is required (if allowed), then copying the license data (sinf) into the
-// package. progress receives the download progress; ctx cancels it.
+// once, then up to 3 attempts, obtaining a license when one is required (if
+// allowed), then copying the license data (sinf) into the package. Unlike cmd/,
+// an expired password token isn't retried with a new sign-in (see withAccount).
+// progress receives the download progress; ctx cancels it.
 func (b *backend) download(ctx context.Context, req downloadRequest, progress *progressbar.ProgressBar) (downloadResult, error) {
 	platform, err := appstore.ParsePlatform(req.platform)
 	if err != nil {
@@ -248,14 +242,6 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 	purchaseRequired, purchased := false, false
 	for attempt := 1; ; attempt++ {
 		path, err := func() (string, error) {
-			if errors.Is(lastErr, appstore.ErrPasswordTokenExpired) {
-				login, err := b.store.Login(appstore.LoginInput{Email: acc.Email, Password: acc.Password})
-				if err != nil {
-					return "", err
-				}
-				acc = login.Account
-			}
-
 			app, priceKnown, err = b.resolveApp(acc, req.target, req.appID, platform)
 			if err != nil {
 				return "", err
@@ -268,9 +254,9 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 				err := b.store.Purchase(appstore.PurchaseInput{Account: acc, App: app, Platform: platform})
 				if err != nil && !errors.Is(err, appstore.ErrLicenseAlreadyExists) {
 					// An app that left the App Store has no known price. If Apple
-					// answers the free license with "sign in required", it's almost
-					// always a paid app: stop, rather than signing in again, which
-					// only sends a surprise two-factor prompt to the user's devices.
+					// answers the free license with "sign in required", either the
+					// sign-in expired or it's a paid app the account didn't buy; the
+					// message covers both (no new sign-in, see withAccount).
 					if !priceKnown && errors.Is(err, appstore.ErrPasswordTokenExpired) {
 						return "", errNoFreeLicense
 					}
@@ -318,8 +304,7 @@ func (b *backend) download(ctx context.Context, req downloadRequest, progress *p
 		if errors.Is(err, appstore.ErrLicenseRequired) && !req.getLicense && priceKnown {
 			return downloadResult{}, errFreeNotOwned
 		}
-		retry := errors.Is(err, appstore.ErrPasswordTokenExpired) ||
-			(errors.Is(err, appstore.ErrLicenseRequired) && req.getLicense)
+		retry := errors.Is(err, appstore.ErrLicenseRequired) && req.getLicense
 		if !retry || attempt == 3 || ctx.Err() != nil {
 			return downloadResult{}, err
 		}
@@ -392,7 +377,7 @@ func (b *backend) versionDetails(ctx context.Context, target string, appID int64
 				Context: ctx, Account: acc, App: app, VersionID: id, Platform: p,
 			})
 			if errors.Is(err, appstore.ErrPasswordTokenExpired) {
-				return err // withAccount signs in again and starts over
+				return err // the rest would fail too; the user logs in again
 			}
 			label := "Version lookup failed"
 			if err == nil {

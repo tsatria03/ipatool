@@ -15,6 +15,10 @@ const (
 		"or Mac; it will then appear in My apps and you can download it here."
 	msgNotOwned = "Your account doesn't own this app. If it's free, check \"Get a free license if needed\" and " +
 		"download again. If it's paid, buy it once on your iPhone, iPad or Mac first."
+	// The GUI never signs in again on its own (see withAccount), so an expired
+	// sign-in always ends here; the Account page can ask for the two-factor code.
+	msgSignInExpired = "Your sign-in has expired. Log in again on the Account page (Ctrl+1), where you can type " +
+		"your two-factor code, then try again."
 )
 
 // errorText turns an error from ipatool's engine into the message shown to the user.
@@ -23,20 +27,23 @@ func errorText(err error) string {
 	case errors.Is(err, errPaidApp):
 		return msgPaidApp
 	case errors.Is(err, errNoFreeLicense):
-		return "Your account doesn't own this app, and Apple wouldn't give a free license, so it was probably a paid app " +
-			"you didn't buy. It can only be downloaded if your account bought it."
+		return "Apple asked for a fresh sign-in before giving a license for this app. Log in again on the Account page " +
+			"(Ctrl+1), where you can type your two-factor code, then try once more. If Apple asks again right after " +
+			"you've logged in, this was probably a paid app your account didn't buy."
 	case errors.Is(err, errFreeNotOwned):
 		return "Your account doesn't own this app yet. It's free: check \"Get a free license if needed\" and download again."
 	case errors.Is(err, appstore.ErrLicenseRequired):
 		return msgNotOwned
 	case errors.Is(err, appstore.ErrPasswordTokenExpired):
-		return "Your sign-in has expired. Log in again on the Account page (Ctrl+1)."
+		return msgSignInExpired
 	case errors.Is(err, appstore.ErrSubscriptionRequired):
 		return "This app needs a subscription, such as Apple Arcade, that your account doesn't have."
 	case errors.Is(err, appstore.ErrTemporarilyUnavailable):
 		return "This app is temporarily unavailable from the App Store. Try again later."
 	case errors.Is(err, errCodeNotAccepted):
 		return "Apple didn't accept the two-factor code. Log in again and use the newest code."
+	case errors.Is(err, appstore.ErrAuthCodeRequired):
+		return "Apple asked for a two-factor code. Log in again on the Account page (Ctrl+1), where you can type the code."
 	}
 	return friendlyError(err.Error())
 }
@@ -65,7 +72,7 @@ func friendlyError(text string) string {
 	case has("keychain passphrase is required"):
 		return "Enter a keychain passphrase on the Account page."
 	case has("password token is expired"):
-		return "Your sign-in has expired. Log in again on the Account page (Ctrl+1)."
+		return msgSignInExpired
 	case has("apple did not complete verification"):
 		return "Apple didn't accept the two-factor code. Log in again and use the newest code."
 	case has("2fa code must contain exactly six digits"):
